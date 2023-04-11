@@ -122,6 +122,7 @@ var rootCmd = &cobra.Command{
 				time.Sleep(time.Millisecond)
 				go func() {
 					defer wg.Done()
+					// 对于每一个客户端配置文件，都启动一个frp client server
 					err := runClient(path)
 					if err != nil {
 						fmt.Printf("frpc service error for config file [%s]\n", path)
@@ -134,6 +135,7 @@ var rootCmd = &cobra.Command{
 		}
 
 		// Do not show command usage here.
+		// 通过配置文件启动一个frp client server
 		err := runClient(cfgFile)
 		if err != nil {
 			fmt.Println(err)
@@ -194,16 +196,18 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 }
 
 func runClient(cfgFilePath string) error {
+	// 解析配置文件
 	cfg, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(cfgFilePath)
 	if err != nil {
 		return err
 	}
+	// 启动frp client server
 	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
 }
 
 func startService(
 	cfg config.ClientCommonConf,
-	pxyCfgs map[string]config.ProxyConf,
+	pxyCfgs map[string]config.ProxyConf, // 一个配置文件当中可能需要代理多个服务
 	visitorCfgs map[string]config.VisitorConf,
 	cfgFile string,
 ) (err error) {
@@ -214,6 +218,7 @@ func startService(
 		log.Trace("start frpc service for config file [%s]", cfgFile)
 		defer log.Trace("frpc service for config file [%s] stopped", cfgFile)
 	}
+	// 实例化一个Server
 	svr, errRet := client.NewService(cfg, pxyCfgs, visitorCfgs, cfgFile)
 	if errRet != nil {
 		err = errRet
@@ -221,12 +226,14 @@ func startService(
 	}
 
 	closedDoneCh := make(chan struct{})
+	// 如果为KCP协议或者是QUIC协议，那么在关闭服务的时候需要优雅关闭服务
 	shouldGracefulClose := cfg.Protocol == "kcp" || cfg.Protocol == "quic"
 	// Capture the exit signal if we use kcp or quic.
 	if shouldGracefulClose {
 		go handleSignal(svr, closedDoneCh)
 	}
 
+	// 启动frp client
 	err = svr.Run()
 	if err == nil && shouldGracefulClose {
 		<-closedDoneCh

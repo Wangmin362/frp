@@ -34,6 +34,7 @@ type ClientCommonConf struct {
 
 	// ServerAddr specifies the address of the server to connect to. By
 	// default, this value is "0.0.0.0".
+	// 通过 ServerAddr:ServerPort注册到frp server
 	ServerAddr string `ini:"server_addr" json:"server_addr"`
 	// Specify another address of the server to connect for nat hole. By default, it's same with
 	// ServerAddr.
@@ -54,10 +55,12 @@ type ClientCommonConf struct {
 	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
 	// By default, this value is empty.
 	// this value only use in TCP/Websocket protocol. Not support in KCP protocol.
+	// 指定frp client的地址，默认是空的
 	ConnectServerLocalIP string `ini:"connect_server_local_ip" json:"connect_server_local_ip"`
 	// HTTPProxy specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
 	// this value is read from the "http_proxy" environment variable.
+	// TODO frp client通过HTTP PROXY连接到frp server
 	HTTPProxy string `ini:"http_proxy" json:"http_proxy"`
 	// LogFile specifies a file where logs will be written to. This value will
 	// only be used if LogWay is set appropriately. By default, this value is
@@ -102,6 +105,7 @@ type ClientCommonConf struct {
 	// from a client to share a single TCP connection. If this value is true,
 	// the server must have TCP multiplexing enabled as well. By default, this
 	// value is true.
+	// TODO tcp的io多路复用是如何做的？
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
@@ -112,6 +116,7 @@ type ClientCommonConf struct {
 	User string `ini:"user" json:"user"`
 	// DNSServer specifies a DNS server address for FRPC to use. If this value
 	// is "", the default DNS will be used. By default, this value is "".
+	// 指定自己的DNSServer TODO 如果是在K8S当中，是不是可以考虑使用CoreDNS
 	DNSServer string `ini:"dns_server" json:"dns_server"`
 	// LoginFailExit controls whether or not the client should exit after a
 	// failed login attempt. If false, the client will retry until a login
@@ -125,6 +130,7 @@ type ClientCommonConf struct {
 	// Protocol specifies the protocol to use when interacting with the server.
 	// Valid values are "tcp", "kcp", "quic" and "websocket". By default, this value
 	// is "tcp".
+	// 和frp server通信使用的协议，默认就是tcp协议
 	Protocol string `ini:"protocol" json:"protocol"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`
@@ -133,6 +139,7 @@ type ClientCommonConf struct {
 	// TLSEnable specifies whether or not TLS should be used when communicating
 	// with the server. If "tls_cert_file" and "tls_key_file" are valid,
 	// client will load the supplied tls configuration.
+	// 和Frp Server之间的通信是否建立在TLS之上，也就是说frp client和frp server之间的tcp,kcp,quic协议可以OverTLS之上
 	TLSEnable bool `ini:"tls_enable" json:"tls_enable"`
 	// TLSCertPath specifies the path of the cert file that client will
 	// load. It only works when "tls_enable" is true and "tls_key_file" is valid.
@@ -147,6 +154,7 @@ type ClientCommonConf struct {
 	TLSTrustedCaFile string `ini:"tls_trusted_ca_file" json:"tls_trusted_ca_file"`
 	// TLSServerName specifies the custom server name of tls certificate. By
 	// default, server name if same to ServerAddr.
+	// frp server的域名
 	TLSServerName string `ini:"tls_server_name" json:"tls_server_name"`
 	// By default, frpc will connect frps with first custom byte if tls is enabled.
 	// If DisableCustomTLSFirstByte is true, frpc will not send that custom byte.

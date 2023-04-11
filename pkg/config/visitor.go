@@ -32,6 +32,7 @@ var (
 	}
 )
 
+// VisitorConf TODO 这是干嘛用的？
 type VisitorConf interface {
 	GetBaseInfo() *BaseVisitorConf
 	Compare(cmp VisitorConf) bool

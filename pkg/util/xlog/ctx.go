@@ -34,6 +34,7 @@ func FromContext(ctx context.Context) (xl *Logger, ok bool) {
 }
 
 func FromContextSafe(ctx context.Context) *Logger {
+	// TODO logger实例被放到了Context当中
 	xl, ok := ctx.Value(xlogKey).(*Logger)
 	if !ok {
 		xl = New()

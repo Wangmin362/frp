@@ -50,6 +50,7 @@ func NewConfByType(proxyType string) ProxyConf {
 	return cfg
 }
 
+// ProxyConf 代理服务的抽象
 type ProxyConf interface {
 	GetBaseInfo() *BaseProxyConf
 	UnmarshalFromMsg(*msg.NewProxy)

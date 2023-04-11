@@ -129,6 +129,7 @@ func (svr *Service) Run() error {
 
 	// login to frps
 	for {
+		// frp client启动时，首先就需要注册到frp server,在注册的同时frpc和frps之间建立了一个IO多路复用的Socket
 		conn, cm, err := svr.login()
 		if err != nil {
 			xl.Warn("login to server failed: %v", err)
@@ -241,8 +242,10 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
+	// TODO 连接管理器是如何工作的？ 答：连接管理器主要是为了能够复用frpc到frps之间的连接，并且能够做到IO多路复用
 	cm = NewConnectionManager(svr.ctx, &svr.cfg)
 
+	// 建立frpc和frps之间的连接
 	if err = cm.OpenConnection(); err != nil {
 		return nil, nil, err
 	}
@@ -253,6 +256,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		}
 	}()
 
+	// 从连接管理器中取出生成一个连接，这个连接肯定和其它连接可以通过内部的数据结构区分
 	conn, err = cm.Connect()
 	if err != nil {
 		return
@@ -269,7 +273,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		Metas:     svr.cfg.Metas,
 	}
 
-	// Add auth
+	// Add auth 设置认证器
 	if err = svr.authSetter.SetLogin(loginMsg); err != nil {
 		return
 	}
@@ -280,6 +284,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 
 	var loginRespMsg msg.LoginResp
 	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
+	// 读取frps返回的消息
 	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
 		return
 	}
@@ -332,8 +337,10 @@ func (svr *Service) GracefulClose(d time.Duration) {
 	svr.cancel()
 }
 
+// ConnectionManager TODO 是为了和frp server之间的多路复用  原理是啥？
 type ConnectionManager struct {
 	ctx context.Context
+	// frp client的配置
 	cfg *config.ClientCommonConf
 
 	muxSession *fmux.Session
@@ -347,10 +354,11 @@ func NewConnectionManager(ctx context.Context, cfg *config.ClientCommonConf) *Co
 	}
 }
 
+// OpenConnection 用于在frpc和frps之间建立一个连接，这个连接可以做到IO多路复用
 func (cm *ConnectionManager) OpenConnection() error {
 	xl := xlog.FromContextSafe(cm.ctx)
 
-	// special for quic
+	// special for quic quic连接本身就是多路复用的，只需要建立就好，不需要额外处理
 	if strings.EqualFold(cm.cfg.Protocol, "quic") {
 		var tlsConfig *tls.Config
 		var err error
@@ -391,14 +399,17 @@ func (cm *ConnectionManager) OpenConnection() error {
 		return nil
 	}
 
+	// 连接frps
 	conn, err := cm.realConnect()
 	if err != nil {
 		return err
 	}
 
+	// 创建一个基于tcp的io多路复用
 	fmuxCfg := fmux.DefaultConfig()
 	fmuxCfg.KeepAliveInterval = time.Duration(cm.cfg.TCPMuxKeepaliveInterval) * time.Second
 	fmuxCfg.LogOutput = io.Discard
+	// 创建session 通过这个session,可以复用连接
 	session, err := fmux.Client(conn, fmuxCfg)
 	if err != nil {
 		return err
@@ -415,6 +426,7 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 		}
 		return frpNet.QuicStreamToNetConn(stream, cm.quicConn), nil
 	} else if cm.muxSession != nil {
+		// 类似于HTTP2中的frame，可以认为就是一个连接，只不过是公用的连接
 		stream, err := cm.muxSession.OpenStream()
 		if err != nil {
 			return nil, err
@@ -426,15 +438,17 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 }
 
 func (cm *ConnectionManager) realConnect() (net.Conn, error) {
+	// 从Context中取出Logger实例，用法非常类似java中的ThreadLocalMap
 	xl := xlog.FromContextSafe(cm.ctx)
 	var tlsConfig *tls.Config
 	var err error
-	if cm.cfg.TLSEnable {
+	if cm.cfg.TLSEnable { // frp client和frp server之间采用TLS认证
 		sn := cm.cfg.TLSServerName
-		if sn == "" {
+		if sn == "" { // 如果Frp Server没有指定域名，就直接使用IP地址 TODO 这一块和证书相关
 			sn = cm.cfg.ServerAddr
 		}
 
+		// 实例化TLS配置
 		tlsConfig, err = transport.NewClientTLSConfig(
 			cm.cfg.TLSCertFile,
 			cm.cfg.TLSKeyFile,
@@ -446,31 +460,33 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		}
 	}
 
+	// 解析frp client的代理
 	proxyType, addr, auth, err := libdial.ParseProxyURL(cm.cfg.HTTPProxy)
 	if err != nil {
 		xl.Error("fail to parse proxy url")
 		return nil, err
 	}
-	dialOptions := []libdial.DialOption{}
+	var dialOptions []libdial.DialOption
 	protocol := cm.cfg.Protocol
 	if protocol == "websocket" {
-		protocol = "tcp"
+		protocol = "tcp" // 本质上websocket协议就是tcp协议
 		dialOptions = append(dialOptions, libdial.WithAfterHook(libdial.AfterHook{Hook: frpNet.DialHookWebsocket()}))
 	}
 	if cm.cfg.ConnectServerLocalIP != "" {
 		dialOptions = append(dialOptions, libdial.WithLocalAddr(cm.cfg.ConnectServerLocalIP))
 	}
 	dialOptions = append(dialOptions,
-		libdial.WithProtocol(protocol),
-		libdial.WithTimeout(time.Duration(cm.cfg.DialServerTimeout)*time.Second),
-		libdial.WithKeepAlive(time.Duration(cm.cfg.DialServerKeepAlive)*time.Second),
-		libdial.WithProxy(proxyType, addr),
-		libdial.WithProxyAuth(auth),
-		libdial.WithTLSConfig(tlsConfig),
+		libdial.WithProtocol(protocol),                                               // 设置使用的协议
+		libdial.WithTimeout(time.Duration(cm.cfg.DialServerTimeout)*time.Second),     // 设置连接超时时间
+		libdial.WithKeepAlive(time.Duration(cm.cfg.DialServerKeepAlive)*time.Second), // TODO 如何理解KeepAlive
+		libdial.WithProxy(proxyType, addr),                                           // 设置frpc的代理
+		libdial.WithProxyAuth(auth),                                                  // 设置代理认证
+		libdial.WithTLSConfig(tlsConfig),                                             // 设置 TLS
 		libdial.WithAfterHook(libdial.AfterHook{
 			Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
 		}),
 	)
+	// 连接frps
 	conn, err := libdial.Dial(
 		net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 		dialOptions...,
