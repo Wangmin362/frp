@@ -107,8 +107,10 @@ var rootCmd = &cobra.Command{
 
 		// If cfgDir is not empty, run multiple frpc service for each config file in cfgDir.
 		// Note that it's only designed for testing. It's not guaranteed to be stable.
+		// 如果配置了配置文件目录，那么对于每一个配置文件，都会启动一个frp client
 		if cfgDir != "" {
 			var wg sync.WaitGroup
+			// 遍历配置目录
 			_ = filepath.WalkDir(cfgDir, func(path string, d fs.DirEntry, err error) error {
 				if err != nil {
 					return nil
