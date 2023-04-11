@@ -1,0 +1,15 @@
+### get tenant-a hello1
+GET http://{{tenant-a-addr}}/hello1
+Accept: application/json
+
+### get tenant-a hellob
+GET http://{{tenant-a-addr}}/hello2
+Accept: application/json
+
+### get tenant-b hello1
+GET http://{{tenant-b-addr}}/hello1
+Accept: application/json
+
+### get tenant-b hellob
+GET http://{{tenant-b-addr}}/hello2
+Accept: application/json

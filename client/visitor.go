@@ -38,6 +38,7 @@ import (
 )
 
 // Visitor is used for forward traffics from local port tot remote service.
+// TODO visitor主要是用来干嘛的？
 type Visitor interface {
 	Run() error
 	Close()

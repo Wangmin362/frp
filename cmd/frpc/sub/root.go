@@ -196,7 +196,7 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 }
 
 func runClient(cfgFilePath string) error {
-	// 解析配置文件
+	// 解析配置文件，拿到common, 代理配置, visitor配置
 	cfg, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(cfgFilePath)
 	if err != nil {
 		return err
