@@ -9,7 +9,9 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	frpIo "github.com/fatedier/golib/io"
+	fmux "github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
+	"io"
 	"net"
 	"time"
 )
@@ -59,7 +61,25 @@ func (svr *SocketServer) HandleListener(l net.Listener) {
 
 		// Start a new goroutine to handle connection.
 		go func(ctx context.Context, frpConn net.Conn) {
-			svr.handleConnection(ctx, frpConn)
+			fmuxCfg := fmux.DefaultConfig()
+			fmuxCfg.KeepAliveInterval = time.Duration(15) * time.Second
+			fmuxCfg.LogOutput = io.Discard
+			session, err := fmux.Server(frpConn, fmuxCfg)
+			if err != nil {
+				log.Warn("Failed to create mux connection: %v", err)
+				frpConn.Close()
+				return
+			}
+
+			for {
+				stream, err := session.AcceptStream()
+				if err != nil {
+					log.Debug("Accept new mux stream error: %v", err)
+					session.Close()
+					return
+				}
+				go svr.handleConnection(ctx, stream)
+			}
 		}(ctx, originConn)
 	}
 }
