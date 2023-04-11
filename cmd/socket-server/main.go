@@ -121,6 +121,7 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 			})
 			conn.Close()
 		}
+		log.Info("%s register successful", tenantId)
 		svr.proxyTasks <- &Proxy{tenantId: tenantId, originConn: conn, frpcConn: frpcConn}
 
 	default:
