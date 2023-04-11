@@ -29,6 +29,7 @@ import (
 // ClientCommonConf contains information for a client service. It is
 // recommended to use GetDefaultClientConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
+// 所有的Common参数
 type ClientCommonConf struct {
 	auth.ClientConfig `ini:",extends"`
 
@@ -83,6 +84,7 @@ type ClientCommonConf struct {
 	DisableLogColor bool `ini:"disable_log_color" json:"disable_log_color"`
 	// AdminAddr specifies the address that the admin server binds to. By
 	// default, this value is "127.0.0.1".
+	// TODO admin相关的参数都是为了启动前端UI界面
 	AdminAddr string `ini:"admin_addr" json:"admin_addr"`
 	// AdminPort specifies the port for the admin server to listen on. If this
 	// value is 0, the admin server will not be started. By default, this value

@@ -112,7 +112,7 @@ func (svr *Service) GetController() *Control {
 func (svr *Service) Run() error {
 	xl := xlog.FromContextSafe(svr.ctx)
 
-	// set custom DNSServer
+	// set custom DNSServer  使用用户指定的DNS
 	if svr.cfg.DNSServer != "" {
 		dnsAddr := svr.cfg.DNSServer
 		if _, _, err := net.SplitHostPort(dnsAddr); err != nil {
@@ -141,7 +141,7 @@ func (svr *Service) Run() error {
 			}
 			util.RandomSleep(10*time.Second, 0.9, 1.1)
 		} else {
-			// login success
+			// login success TODO Control是如何工作的？
 			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
 			ctl.Run()
 			svr.ctlMu.Lock()
@@ -153,6 +153,7 @@ func (svr *Service) Run() error {
 
 	go svr.keepControllerWorking()
 
+	// 启动前端UI界面
 	if svr.cfg.AdminPort != 0 {
 		// Init admin server assets
 		assets.Load(svr.cfg.AssetsDir)
@@ -168,7 +169,9 @@ func (svr *Service) Run() error {
 	return nil
 }
 
+// keepControllerWorking TODO 这个函数主要是在干嘛？
 func (svr *Service) keepControllerWorking() {
+	// 从context中取出logger
 	xl := xlog.FromContextSafe(svr.ctx)
 	maxDelayTime := 20 * time.Second
 	delayTime := time.Second

@@ -33,6 +33,7 @@ var (
 )
 
 // VisitorConf TODO 这是干嘛用的？
+// TODO Visitor配置都是那些以 xxxx_visitor 结尾的配置，可以理解为代理配置的一种
 type VisitorConf interface {
 	GetBaseInfo() *BaseVisitorConf
 	Compare(cmp VisitorConf) bool

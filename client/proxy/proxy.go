@@ -43,9 +43,11 @@ import (
 
 // Proxy defines how to handle work connections for different proxy type.
 type Proxy interface {
+	// Run TODO 如何理解Run方法，似乎都是在生产插件
 	Run() error
 
 	// InWorkConn accept work connections registered to server.
+	// TODO 如何理解这个方法
 	InWorkConn(net.Conn, *msg.StartWorkConn)
 
 	Close()
@@ -55,6 +57,7 @@ func NewProxy(ctx context.Context, pxyConf config.ProxyConf, clientCfg config.Cl
 	var limiter *rate.Limiter
 	limitBytes := pxyConf.GetBaseInfo().BandwidthLimit.Bytes()
 	if limitBytes > 0 && pxyConf.GetBaseInfo().BandwidthLimitMode == config.BandwidthLimitModeClient {
+		// 限速器
 		limiter = rate.NewLimiter(rate.Limit(float64(limitBytes)), int(limitBytes))
 	}
 

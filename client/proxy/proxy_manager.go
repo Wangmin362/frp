@@ -15,7 +15,8 @@ import (
 )
 
 type Manager struct {
-	sendCh  chan msg.Message
+	sendCh chan msg.Message
+	// ProxyManager管理的代理
 	proxies map[string]*Wrapper
 
 	closed bool
@@ -103,6 +104,7 @@ func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
 }
 
 func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
+	// 从context中获取logger
 	xl := xlog.FromContextSafe(pm.ctx)
 	pm.mu.Lock()
 	defer pm.mu.Unlock()

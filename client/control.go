@@ -31,26 +31,34 @@ import (
 	"github.com/fatedier/frp/pkg/util/xlog"
 )
 
+// Control TODO Control是为了干嘛？
 type Control struct {
 	// uniq id got from frps, attach it in loginMsg
+	// TODO runID是为了干嘛？仅仅用于区分不同的frpc，打印日志么
 	runID string
 
 	// manage all proxies
 	pxyCfgs map[string]config.ProxyConf
-	pm      *proxy.Manager
+	// TODO ProxyManager是如何工作的？
+	pm *proxy.Manager
 
 	// manage all visitors
+	// TODO VisitorManager是用来干嘛的？
 	vm *VisitorManager
 
 	// control connection
+	// TODO 如何理解这个连接? 这个连接就是frpc和frps之间的连接么？
 	conn net.Conn
 
+	// TODO 连接管理器用于维护frpc和frps之间的TCP连接，并且可以做到IO多路复用
 	cm *ConnectionManager
 
 	// put a message in this channel to send it over control connection to server
+	// TODO 干嘛用的？
 	sendCh chan msg.Message
 
 	// read from this channel to get the next message sent by server
+	// TODO 干吗用的？
 	readCh chan msg.Message
 
 	// goroutines can block by reading from this channel, it will be closed only in reader() when control connection is closed
@@ -62,6 +70,7 @@ type Control struct {
 	lastPong time.Time
 
 	// The client configuration
+	// frpc的配置
 	clientCfg config.ClientCommonConf
 
 	readerShutdown     *shutdown.Shutdown
@@ -69,6 +78,7 @@ type Control struct {
 	msgHandlerShutdown *shutdown.Shutdown
 
 	// The UDP port that the server is listening on
+	// TODO frps为什么会监听这个端口？并且启用了UDP协议？
 	serverUDPPort int
 
 	xl *xlog.Logger
@@ -103,7 +113,7 @@ func NewControl(
 		writerShutdown:     shutdown.New(),
 		msgHandlerShutdown: shutdown.New(),
 		serverUDPPort:      serverUDPPort,
-		xl:                 xlog.FromContextSafe(ctx),
+		xl:                 xlog.FromContextSafe(ctx), // 从Context中取出Logger
 		ctx:                ctx,
 		authSetter:         authSetter,
 	}

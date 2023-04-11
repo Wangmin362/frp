@@ -50,7 +50,7 @@ func NewConfByType(proxyType string) ProxyConf {
 	return cfg
 }
 
-// ProxyConf 代理服务的抽象
+// ProxyConf 代理服务的抽象 TODO 处理common配置以及 xxxx_visitor配置，其余所有的配置都是代理配置
 type ProxyConf interface {
 	GetBaseInfo() *BaseProxyConf
 	UnmarshalFromMsg(*msg.NewProxy)
