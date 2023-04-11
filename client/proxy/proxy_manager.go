@@ -140,6 +140,7 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
+			// TODO 代理的启动似乎是和监控、健康状态相关的东西。
 			pxy.Start()
 		}
 	}

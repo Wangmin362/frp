@@ -153,7 +153,7 @@ func (svr *Service) Run() error {
 		}
 	}
 
-	// TODO 如果frpc和frps之间的连接断开了,这里需要重新建立连接
+	// TODO 如果frpc和frps之间的连接断开了,这里会尝试重新建立连接
 	go svr.keepControllerWorking()
 
 	// 启动前端UI界面

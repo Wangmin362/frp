@@ -56,6 +56,7 @@ type Wrapper struct {
 	// event handler
 	handler event.Handler
 
+	// TODO 似乎是和代理健康状态有关的东西
 	health           uint32
 	lastSendStartMsg time.Time
 	lastStartErr     time.Time
@@ -174,6 +175,7 @@ func (pw *Wrapper) checkWorker() {
 				pw.Phase = ProxyPhaseWaitStart
 
 				var newProxyMsg msg.NewProxy
+				// TODO 似乎是这里向frps发送的代理消息
 				pw.Cfg.MarshalToMsg(&newProxyMsg)
 				pw.lastSendStartMsg = now
 				_ = pw.handler(&event.StartProxyPayload{
