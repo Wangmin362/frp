@@ -102,6 +102,7 @@ type Service struct {
 }
 
 func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
+	// 构建TLS配置，如果没有配置证书，frp会自己生成证书
 	tlsConfig, err := transport.NewServerTLSConfig(
 		cfg.TLSCertFile,
 		cfg.TLSKeyFile,
@@ -126,6 +127,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Create tcpmux httpconnect multiplexer.
+	// TODO TCP多路复用器,它是如何工作的？
 	if cfg.TCPMuxHTTPConnectPort > 0 {
 		var l net.Listener
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))

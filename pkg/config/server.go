@@ -34,9 +34,11 @@ type ServerCommonConf struct {
 
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
+	// frp的监听地址，默认为：0.0.0.0 也就是允许所有ip地址访问
+	// TODO BindAddr用于和frp client之间的交互，猜测这个端口是用于frpc client注册，同时让server监听需要的端口
 	BindAddr string `ini:"bind_addr" json:"bind_addr"`
 	// BindPort specifies the port that the server listens on. By default, this
-	// value is 7000.
+	// value is 7000.  frp默认监听端口
 	BindPort int `ini:"bind_port" json:"bind_port" validate:"gte=0,lte=65535"`
 	// BindUDPPort specifies the UDP port that the server listens on. If this
 	// value is 0, the server will not listen for UDP connections. By default,
@@ -60,15 +62,18 @@ type ServerCommonConf struct {
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
+	// 通过这个端口来转发HTTP协议数据
 	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port" validate:"gte=0,lte=65535"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
 	// requests. By default, this value is 0.
+	// 通过这个端口来转发HTTPS协议数据
 	VhostHTTPSPort int `ini:"vhost_https_port" json:"vhost_https_port" validate:"gte=0,lte=65535"`
 	// TCPMuxHTTPConnectPort specifies the port that the server listens for TCP
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
+	// TODO 如何使用？
 	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port" validate:"gte=0,lte=65535"`
 	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
 	TCPMuxPassthrough bool `ini:"tcpmux_passthrough" json:"tcpmux_passthrough"`

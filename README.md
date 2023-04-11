@@ -26,6 +26,18 @@ frp is a fast reverse proxy that allows you to expose a local server located beh
 
 frp also offers a P2P connect mode.
 
+## 原理
+
+![](doc/pic/frp-theory1.png)
+
+- 1、首先启动frpc，frpc启动后会向frps注册，也就是内网WEB服务器会向VPS请求注册
+- 2、客户端请求frps，也就是当我们的攻击机去访问frps。
+- 3、frps告知frpc有新请求，需要建立连接，也就是VPS告知内网WEB服务器，需要建立连接。
+- 4、frps收到frpc的请求，建立新的连接，也就是VPS接收到了内网WEB服务器的请求，建立了新的连接。
+- 5、frps吧frpc和攻击机的流量互相转发，将frps服务器当成流量中转站，也就是VPS将攻击机的流量转发给内网WEB服务器，把内网WEB服务器的流量转发给攻击机
+
+![](doc/pic/frp-theory2.png)
+
 ## Table of Contents
 
 <!-- vim-markdown-toc GFM -->
