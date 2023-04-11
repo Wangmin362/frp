@@ -90,6 +90,7 @@ func (pm *Manager) HandleEvent(payload interface{}) error {
 	}
 
 	err := errors.PanicToError(func() {
+		// 把需要发送给frps的消息放到sendCh通道当中，ctl.msgHandler()会处理这个消息
 		pm.sendCh <- m
 	})
 	return err
@@ -140,7 +141,7 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
-			// TODO 代理的启动似乎是和监控、健康状态相关的东西。
+			// TODO 代理的启动似乎是和监控、健康状态相关的东西。 还有非常重要的一点，frpc会向frps发送代理类型的消息
 			pxy.Start()
 		}
 	}

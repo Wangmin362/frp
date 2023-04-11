@@ -131,7 +131,8 @@ func (ctl *Control) Run() {
 	go ctl.worker()
 
 	// start all proxies
-	// TODO 启动所有的代理
+	// 启动所有的代理 所谓的启动代理，实际上就把代理消息发送给frps，frps接收到代理消息之后会监听对应的端口
+	// 当用户访问frps对应的端口时，frps需要把对应端口的数据转发给frpc合适的代理
 	ctl.pm.Reload(ctl.pxyCfgs)
 
 	// start all visitors
@@ -142,6 +143,7 @@ func (ctl *Control) Run() {
 // HandleReqWorkConn TODO 这玩意干嘛的?
 func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	xl := ctl.xl
+	// 拿到一个连接
 	workConn, err := ctl.connectServer()
 	if err != nil {
 		xl.Warn("start new connection to server error: %v", err)
@@ -151,10 +153,12 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	m := &msg.NewWorkConn{
 		RunID: ctl.runID,
 	}
+	// 认证
 	if err = ctl.authSetter.SetNewWorkConn(m); err != nil {
 		xl.Warn("error during NewWorkConn authentication: %v", err)
 		return
 	}
+	// 发送 NewWorkConn类型的数据给frps
 	if err = msg.WriteMsg(workConn, m); err != nil {
 		xl.Warn("work connection write to server error: %v", err)
 		workConn.Close()
@@ -162,6 +166,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	}
 
 	var startMsg msg.StartWorkConn
+	// 读取frps的响应
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
 		xl.Trace("work connection closed before response StartWorkConn message: %v", err)
 		workConn.Close()
@@ -323,10 +328,14 @@ func (ctl *Control) msgHandler() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
-				// TODO 这个数据包又是干嘛的呢?
+				// TODO 这个数据包又是干嘛的呢?  猜测这里就是frpc需要真是代理数据包的地方
+				// 答：这里并非在代理真正的数据包，而是在建立frpc和frps tcp连接
+				// 从名字上可以看出来，这里实际上是在建立一条wrok conn，也就是真正代理数据包的连接
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
 				// TODO frps啥时候会发送这个数据包呢?
+				// 答：frpc在启动所有的代理的时候，会向frps发送每个代理的信息，当frps处理启动对应端口监听时就会返回代理类型响应的消息
+				// 当frpc收到frps响应的代理消息之后，将会把代理的状态设置为Running状态，此时代理可以开始处理正常的业务数据了
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
 				if m.Error != "" {
@@ -347,7 +356,7 @@ func (ctl *Control) worker() {
 	// TODO 这里主要做了以下几件事情: 1, 每隔30秒给frps发送一个Ping类型的心跳包 2, 每隔一秒中检查以下frpc和frps之间的心跳是否正常
 	// TODO 3. 从readCh channel中读取消息(该消息是frps发送给frpc的消息), 可能是以下三种类型之一:
 	// TODO 3.1, msg.ReqWorkConn
-	// TODO 3.2, msg.NewProxyResp
+	// TODO 3.2, msg.NewProxyResp 当ctl.pm.Reload(ctl.pxyCfgs)启动所有代理的时候，frpc会把代理消息发送给frps，frps成功处理之后会返回这种类型的消息
 	// TODO 3.3, msg.Pong  这个是frps返回的心跳响应
 	go ctl.msgHandler()
 	// TODO 读取frps发送给frpc的消息,并把消息发送到readCh channel当中

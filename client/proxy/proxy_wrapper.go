@@ -175,9 +175,11 @@ func (pw *Wrapper) checkWorker() {
 				pw.Phase = ProxyPhaseWaitStart
 
 				var newProxyMsg msg.NewProxy
-				// TODO 似乎是这里向frps发送的代理消息
+				// 把当前代理配置反序列化到newProxyMsg当中
 				pw.Cfg.MarshalToMsg(&newProxyMsg)
+				// 更新时间
 				pw.lastSendStartMsg = now
+				// 把当前消息包装为一个事件
 				_ = pw.handler(&event.StartProxyPayload{
 					NewProxyMsg: &newProxyMsg,
 				})

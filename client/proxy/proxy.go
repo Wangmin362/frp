@@ -802,6 +802,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		return
 	}
 
+	// 这里应该是在建立frpc和被代理服务之间的连接
 	localConn, err := libdial.Dial(
 		net.JoinHostPort(localInfo.LocalIP, strconv.Itoa(localInfo.LocalPort)),
 		libdial.WithTimeout(10*time.Second),
@@ -823,6 +824,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		}
 	}
 
+	// 数据拷贝
 	_, _, errs := frpIo.Join(localConn, remote)
 	xl.Debug("join connections closed")
 	if len(errs) > 0 {
