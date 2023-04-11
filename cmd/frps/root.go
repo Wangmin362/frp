@@ -107,6 +107,8 @@ var rootCmd = &cobra.Command{
 
 		var cfg config.ServerCommonConf
 		var err error
+		// 如果配置文件非空，那么根据配置文件内容作为frp server配置
+		// 如果配置文件为空，那么以命令行参数作为frp server配置
 		if cfgFile != "" {
 			var content []byte
 			content, err = config.GetRenderedConfFromFile(cfgFile)
