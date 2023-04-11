@@ -99,6 +99,7 @@ func NewWrapper(ctx context.Context, cfg config.ProxyConf, clientCfg config.Clie
 func (pw *Wrapper) SetRunningStatus(remoteAddr string, respErr string) error {
 	pw.mu.Lock()
 	defer pw.mu.Unlock()
+	// 此时此刻,Proxy必须处于wait状态
 	if pw.Phase != ProxyPhaseWaitStart {
 		return fmt.Errorf("status not wait start, ignore start message")
 	}
@@ -111,6 +112,7 @@ func (pw *Wrapper) SetRunningStatus(remoteAddr string, respErr string) error {
 		return fmt.Errorf(pw.Err)
 	}
 
+	// 创建一个对应类型的代理插件  默认就是TCP类型的代理插件
 	if err := pw.pxy.Run(); err != nil {
 		pw.close()
 		pw.Phase = ProxyPhaseStartErr

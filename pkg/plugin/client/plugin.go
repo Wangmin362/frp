@@ -45,7 +45,8 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 type Plugin interface {
 	Name() string
 
-	// extraBufToLocal will send to local connection first, then join conn with local connection
+	// Handle extraBufToLocal will send to local connection first, then join conn with local connection
+	// conn为frpc和frps之间的TCP连接  realConn为被代理的服务和frpc之间的连接
 	Handle(conn io.ReadWriteCloser, realConn net.Conn, extraBufToLocal []byte)
 	Close() error
 }

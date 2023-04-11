@@ -41,6 +41,7 @@ func NewManager(ctx context.Context, msgSendCh chan msg.Message, clientCfg confi
 	}
 }
 
+// StartProxy 说起启动代理,实际上就是设置了以下状态
 func (pm *Manager) StartProxy(name string, remoteAddr string, serverRespErr string) error {
 	pm.mu.RLock()
 	pxy, ok := pm.proxies[name]
@@ -49,6 +50,7 @@ func (pm *Manager) StartProxy(name string, remoteAddr string, serverRespErr stri
 		return fmt.Errorf("proxy [%s] not found", name)
 	}
 
+	// 这里主要是生成一个对应类型的代理插件,譬如TCP, HTTP, HTTPS, WEBSOCKET等等,然后设置当前代理的状态为Running
 	err := pxy.SetRunningStatus(remoteAddr, serverRespErr)
 	if err != nil {
 		return err
@@ -103,6 +105,7 @@ func (pm *Manager) GetAllProxyStatus() []*WorkingStatus {
 	return ps
 }
 
+// Reload 重新设置代理服务, 这里应该是frp代理热加载功能的实现
 func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 	// 从context中获取logger
 	xl := xlog.FromContextSafe(pm.ctx)

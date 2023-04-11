@@ -193,6 +193,7 @@ type HTTPProxy struct {
 
 func (pxy *HTTPProxy) Run() (err error) {
 	if pxy.cfg.Plugin != "" {
+		// 创建一个具体类型的代理插件
 		pxy.proxyPlugin, err = plugin.Create(pxy.cfg.Plugin, pxy.cfg.PluginParams)
 		if err != nil {
 			return

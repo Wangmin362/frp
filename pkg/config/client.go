@@ -56,7 +56,7 @@ type ClientCommonConf struct {
 	// ConnectServerLocalIP specifies the address of the client bind when it connect to server.
 	// By default, this value is empty.
 	// this value only use in TCP/Websocket protocol. Not support in KCP protocol.
-	// 指定frp client的地址，默认是空的
+	// TODO 指定frp client的地址，默认是空的 这个参数有何作用?
 	ConnectServerLocalIP string `ini:"connect_server_local_ip" json:"connect_server_local_ip"`
 	// HTTPProxy specifies a proxy address to connect to the server through. If
 	// this value is "", the server will be connected to directly. By default,
@@ -111,6 +111,7 @@ type ClientCommonConf struct {
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
+	// TODO 这个参数的作用?
 	TCPMuxKeepaliveInterval int64 `ini:"tcp_mux_keepalive_interval" json:"tcp_mux_keepalive_interval"`
 	// User specifies a prefix for proxy names to distinguish them from other
 	// clients. If this value is not "", proxy names will automatically be
@@ -164,10 +165,12 @@ type ClientCommonConf struct {
 	// HeartBeatInterval specifies at what interval heartbeats are sent to the
 	// server, in seconds. It is not recommended to change this value. By
 	// default, this value is 30. Set negative value to disable it.
+	// TODO frpc发送给frps的心跳包间隔,默认是30秒 如果设置tcp_mux=false,此时建立了多个连接,那么是否意味着每个连接都需要发送心跳包
 	HeartbeatInterval int64 `ini:"heartbeat_interval" json:"heartbeat_interval"`
 	// HeartBeatTimeout specifies the maximum allowed heartbeat response delay
 	// before the connection is terminated, in seconds. It is not recommended
 	// to change this value. By default, this value is 90. Set negative value to disable it.
+	// 心跳异常时间,默认为90秒,也就是说默认3个心跳包都没有收到,说明frpc和frps之间的连接一定出了问题
 	HeartbeatTimeout int64 `ini:"heartbeat_timeout" json:"heartbeat_timeout"`
 	// Client meta info
 	Metas map[string]string `ini:"-" json:"metas"`

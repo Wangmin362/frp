@@ -43,14 +43,17 @@ type ServerCommonConf struct {
 	// BindUDPPort specifies the UDP port that the server listens on. If this
 	// value is 0, the server will not listen for UDP connections. By default,
 	// this value is 0
+	// TODO frp可以代理TCP,同时也可以代理UDP流量
 	BindUDPPort int `ini:"bind_udp_port" json:"bind_udp_port" validate:"gte=0,lte=65535"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
+	// TODO frp可以代理KCP流量
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
 	// QUICBindPort specifies the QUIC port that the server listens on.
 	// Set this value to 0 will disable this feature.
 	// By default, the value is 0.
+	// TODO frp还可以代理QUIC流量
 	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`

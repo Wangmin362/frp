@@ -110,6 +110,7 @@ func (svr *Service) GetController() *Control {
 }
 
 func (svr *Service) Run() error {
+	// TODO logger参数什么时候放到context当中的?
 	xl := xlog.FromContextSafe(svr.ctx)
 
 	// set custom DNSServer  使用用户指定的DNS
@@ -141,8 +142,9 @@ func (svr *Service) Run() error {
 			}
 			util.RandomSleep(10*time.Second, 0.9, 1.1)
 		} else {
-			// login success TODO Control是如何工作的？
+			// login success
 			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
+			// TODO
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl
@@ -151,6 +153,7 @@ func (svr *Service) Run() error {
 		}
 	}
 
+	// TODO 如果frpc和frps之间的连接断开了,这里需要重新建立连接
 	go svr.keepControllerWorking()
 
 	// 启动前端UI界面
@@ -184,6 +187,7 @@ func (svr *Service) keepControllerWorking() {
 	reconnectCounts := 1
 
 	for {
+		// 这个channel啥时候会被关闭?
 		<-svr.ctl.ClosedDoneCh()
 		if atomic.LoadUint32(&svr.exit) != 0 {
 			return
@@ -273,21 +277,23 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		Version:   version.Full(),
 		Timestamp: time.Now().Unix(),
 		RunID:     svr.runID,
-		Metas:     svr.cfg.Metas,
+		Metas:     svr.cfg.Metas, // meta参数可以传递业务相关的参数
 	}
 
-	// Add auth 设置认证器
+	// Add auth 设置认证器,发送认证相关的参数,目前看来frp认证可以采用token也可采用oidc
+	// TODO TLS是干嘛用的? frpc和frps之间可以通过TLS进行双向认证么?
 	if err = svr.authSetter.SetLogin(loginMsg); err != nil {
 		return
 	}
 
+	// 向frps发送注册信息， frps会根据客户端发送的注册信息认证frpc
 	if err = msg.WriteMsg(conn, loginMsg); err != nil {
 		return
 	}
 
 	var loginRespMsg msg.LoginResp
 	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
-	// 读取frps返回的消息
+	// 读取frps返回的认证响应消息
 	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
 		return
 	}
@@ -301,8 +307,10 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 
 	svr.runID = loginRespMsg.RunID
 	xl.ResetPrefixes()
+	// 日志前缀全部是用当前frpc注册好的ID
 	xl.AppendPrefix(svr.runID)
 
+	// frp既可以代理TCP流量,也可以代理UDP流量
 	svr.serverUDPPort = loginRespMsg.ServerUDPPort
 	xl.Info("login to server success, get run id [%s], server udp port [%d]", loginRespMsg.RunID, loginRespMsg.ServerUDPPort)
 	return
@@ -402,7 +410,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 		return nil
 	}
 
-	// 连接frps
+	// frpc和frps之间建立一个tcp连接
 	conn, err := cm.realConnect()
 	if err != nil {
 		return err
@@ -489,7 +497,7 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 			Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
 		}),
 	)
-	// 连接frps
+	// frpc和frps之间建立TCP连接
 	conn, err := libdial.Dial(
 		net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 		dialOptions...,

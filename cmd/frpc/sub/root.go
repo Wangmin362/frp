@@ -196,12 +196,12 @@ func parseClientCommonCfgFromCmd() (cfg config.ClientCommonConf, err error) {
 }
 
 func runClient(cfgFilePath string) error {
-	// 解析配置文件，拿到common, 代理配置, visitor配置
+	// 解析配置文件，拿到common配置参数, 代理配置, visitor配置
 	cfg, pxyCfgs, visitorCfgs, err := config.ParseClientConfig(cfgFilePath)
 	if err != nil {
 		return err
 	}
-	// 启动frp client server
+	// 启动frp client
 	return startService(cfg, pxyCfgs, visitorCfgs, cfgFilePath)
 }
 
