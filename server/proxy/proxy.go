@@ -132,6 +132,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 			dstAddr, dstPortStr, _ = net.SplitHostPort(dst.String())
 			dstPort, _ = strconv.Atoi(dstPortStr)
 		}
+		// 发送消息给frpc，请求建立连接
 		err := msg.WriteMsg(workConn, &msg.StartWorkConn{
 			ProxyName: pxy.GetName(),
 			SrcAddr:   srcAddr,
@@ -159,6 +160,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 // p: p will just be passed to handler(Proxy, frpNet.Conn).
 // handler: each proxy type can set different handler function to deal with connections accepted from listeners.
 func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, config.ServerCommonConf)) {
+	// 从context中获取到logger
 	xl := xlog.FromContextSafe(pxy.ctx)
 	for _, listener := range pxy.listeners {
 		go func(l net.Listener) {
@@ -167,8 +169,10 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 			for {
 				// block
 				// if listener is closed, err returned
+				// frps通过监听remote-port接收到用户请求建立连接
 				c, err := l.Accept()
 				if err != nil {
+					// TODO 如何理解这里的写法， 如何理解临时错误？
 					if err, ok := err.(interface{ Temporary() bool }); ok && err.Temporary() {
 						if tempDelay == 0 {
 							tempDelay = 5 * time.Millisecond
@@ -187,6 +191,7 @@ func (pxy *BaseProxy) startListenHandler(p Proxy, handler func(Proxy, net.Conn, 
 					return
 				}
 				xl.Info("get a user connection [%s]", c.RemoteAddr().String())
+				// 处理真实的流量
 				go handler(p, c, pxy.serverCfg)
 			}
 		}(listener)
@@ -319,6 +324,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	name := pxy.GetName()
 	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
 	metrics.Server.OpenConnection(name, proxyType)
+	// 转发用户的数据发送给frpc，同时把frpc响应数据返回给用户
 	inCount, outCount, _ := frpIo.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)

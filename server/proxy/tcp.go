@@ -33,6 +33,7 @@ type TCPProxy struct {
 
 func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 	xl := pxy.xl
+	// 组为非空，说明frpc中配置相同类型的服务，并且需要负载均衡
 	if pxy.cfg.Group != "" {
 		l, realPort, errRet := pxy.rc.TCPGroupCtl.Listen(pxy.name, pxy.cfg.Group, pxy.cfg.GroupKey, pxy.serverCfg.ProxyBindAddr, pxy.cfg.RemotePort)
 		if errRet != nil {
@@ -48,6 +49,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 		pxy.listeners = append(pxy.listeners, l)
 		xl.Info("tcp proxy listen port [%d] in group [%s]", pxy.cfg.RemotePort, pxy.cfg.Group)
 	} else {
+		// 分配一个端口，一般来说我们需要哪个端口，就会分配哪个端口，除非没有指定远端端口
 		pxy.realPort, err = pxy.rc.TCPPortManager.Acquire(pxy.name, pxy.cfg.RemotePort)
 		if err != nil {
 			return
@@ -57,6 +59,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 				pxy.rc.TCPPortManager.Release(pxy.realPort)
 			}
 		}()
+		// frpc开始监听remote-port，此时用户通过访问frps的服务就可以访问到内部服务
 		listener, errRet := net.Listen("tcp", net.JoinHostPort(pxy.serverCfg.ProxyBindAddr, strconv.Itoa(pxy.realPort)))
 		if errRet != nil {
 			err = errRet
@@ -68,6 +71,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 
 	pxy.cfg.RemotePort = pxy.realPort
 	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
+	// TODO 这里应该会处理用户发送的真实流量
 	pxy.startListenHandler(pxy, HandleUserTCPConnection)
 	return
 }

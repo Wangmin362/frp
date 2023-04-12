@@ -403,10 +403,13 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 			conn.Close() // 注册失败的话关闭frpc和frps之间的连接
 		}
 	case *msg.NewWorkConn:
+		// frpc什么时候会向frps发送这个类型的消息？ 答：当客户端需要访问内部穿透服务的时候,frps会发送ReqWorkConn消息，frpc收到之后
+		// 会和代理程序建立连接，并且返回一个NewWorkConn消息
+		// TODO 分析注册WorkConn流程
 		if err := svr.RegisterWorkConn(conn, m); err != nil {
 			conn.Close()
 		}
-	case *msg.NewVisitorConn:
+	case *msg.NewVisitorConn: // TODO 这种类型的消息似乎和点对点通信相关
 		if err = svr.RegisterVisitorConn(conn, m); err != nil {
 			xl.Warn("register visitor conn error: %v", err)
 			_ = msg.WriteMsg(conn, &msg.NewVisitorConnResp{
@@ -429,6 +432,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 func (svr *Service) HandleListener(l net.Listener) {
 	// Listen for incoming connections from client.
 	for {
+		// frps接收到frpc请求建立连接
 		c, err := l.Accept()
 		if err != nil {
 			log.Warn("Listener for incoming connections from client closed")
@@ -443,6 +447,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		log.Trace("start check TLS connection...")
 		originConn := c
 		var isTLS, custom bool
+		// 通过读取连接的第一个字节来判断是不是TLS连接
 		c, isTLS, custom, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)
@@ -465,6 +470,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 				}
 
 				for {
+					// IO多路复用
 					stream, err := session.AcceptStream()
 					if err != nil {
 						log.Debug("Accept new mux stream error: %v", err)
@@ -520,7 +526,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 	xl.Info("client login info: ip [%s] version [%s] hostname [%s] os [%s] arch [%s]",
 		ctlConn.RemoteAddr().String(), loginMsg.Version, loginMsg.Hostname, loginMsg.Os, loginMsg.Arch)
 
-	// Check client version.
+	// Check client version. 对比协议版本
 	if ok, msg := version.Compat(loginMsg.Version); !ok {
 		err = fmt.Errorf("%s", msg)
 		return
@@ -531,6 +537,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 		return
 	}
 
+	// 对当前的frpc生成一个Controller
 	ctl := NewControl(ctx, svr.rc, svr.pxyManager, svr.pluginManager, svr.authVerifier, ctlConn, loginMsg, svr.cfg)
 	if oldCtl := svr.ctlManager.Add(loginMsg.RunID, ctl); oldCtl != nil {
 		oldCtl.allShutdown.WaitDone()

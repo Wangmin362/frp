@@ -216,6 +216,7 @@ func (ctl *Control) Start() {
 	// 实际上还是建立了多个连接，只不过在开启TCP_MUX的情况下，复用了一个连接
 	for i := 0; i < ctl.poolCount; i++ {
 		// 根据连接池的配置大小发送ReqWorkConn消息 frpc接收到该消息后，每来一个ReqWorkConn消息，frpc就和frps之间建立一个连接
+		// 发消息给frpc，让frpc和自己建立一个连接
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	}
 
@@ -269,12 +270,14 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	default:
 		// no work connections available in the poll, send message to frpc to get more
 		if err = errors.PanicToError(func() {
+			// TODO 没有连接的话就请求建立一个连接
 			ctl.sendCh <- &msg.ReqWorkConn{}
 		}); err != nil {
 			return nil, fmt.Errorf("control is already closed")
 		}
 
 		select {
+		// fprc收到ReqWorkConn消息之后，一定会和frps建立连接，frps建立好的连接必须要放到workConnCh当中
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
 				err = frpErr.ErrCtlClosed
@@ -447,7 +450,7 @@ func (ctl *Control) manager() {
 
 	for {
 		select {
-		case <-heartbeatCh:
+		case <-heartbeatCh: // 如果启用了tcp_mux，那么由tcp_mux完成心跳，这里就不需要管心跳包了
 			// 如果超过90秒都没有收到心跳包，说明连接出现了异常
 			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
@@ -473,6 +476,7 @@ func (ctl *Control) manager() {
 				retContent, err := ctl.pluginManager.NewProxy(content)
 				if err == nil {
 					m = &retContent.NewProxy
+					// TODO 注册代理
 					remoteAddr, err = ctl.RegisterProxy(m)
 				}
 
@@ -493,6 +497,7 @@ func (ctl *Control) manager() {
 				_ = ctl.CloseProxy(m)
 				xl.Info("close proxy [%s] success", m.ProxyName)
 			case *msg.Ping:
+				// frpc发过来的心跳包
 				content := &plugin.PingContent{
 					User: plugin.UserInfo{
 						User:  ctl.loginMsg.User,
@@ -524,6 +529,7 @@ func (ctl *Control) manager() {
 func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err error) {
 	var pxyConf config.ProxyConf
 	// Load configures from NewProxy message and check.
+	// 根据frpc发送过来的代理消息，通过反射找到对应的代理配置
 	pxyConf, err = config.NewProxyConfFromMsg(pxyMsg, ctl.serverCfg)
 	if err != nil {
 		return
@@ -538,6 +544,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 
 	// NewProxy will return a interface Proxy.
 	// In fact it create different proxies by different proxy type, we just call run() here.
+	// 根据代理配置实例化新的代理
 	pxy, err := proxy.NewProxy(ctl.ctx, userInfo, ctl.rc, ctl.poolCount, ctl.GetWorkConn, pxyConf, ctl.serverCfg, ctl.loginMsg)
 	if err != nil {
 		return remoteAddr, err
@@ -563,6 +570,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}()
 	}
 
+	// TODO 运行代理程序，一般情况下进入TCP代理
 	remoteAddr, err = pxy.Run()
 	if err != nil {
 		return

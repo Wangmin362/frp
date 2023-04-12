@@ -129,6 +129,7 @@ type BaseProxyConf struct {
 	// Group specifies which group the is a part of. The server will use
 	// this information to load balance proxies in the same group. If the value
 	// is "", this will not be in a group. By default, this value is "".
+	// TODO 一个group下的服务是同一类型的服务，也就是说需要支持负载均衡
 	Group string `ini:"group" json:"group"`
 	// GroupKey specifies a group key, which should be the same among proxies
 	// of the same group. By default, this value is "".
@@ -304,6 +305,7 @@ func NewProxyConfFromMsg(pMsg *msg.NewProxy, serverCfg ServerCommonConf) (ProxyC
 		pMsg.ProxyType = consts.TCPProxy
 	}
 
+	// 根据反射，找到是哪一种类型的代理
 	conf := DefaultProxyConf(pMsg.ProxyType)
 	if conf == nil {
 		return nil, fmt.Errorf("proxy [%s] type [%s] error", pMsg.ProxyName, pMsg.ProxyType)
@@ -311,6 +313,7 @@ func NewProxyConfFromMsg(pMsg *msg.NewProxy, serverCfg ServerCommonConf) (ProxyC
 
 	conf.UnmarshalFromMsg(pMsg)
 
+	// 一些检测动作
 	err := conf.CheckForSvr(serverCfg)
 	if err != nil {
 		return nil, err
