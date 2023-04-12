@@ -8,7 +8,6 @@ import (
 	"github.com/fatedier/frp/pkg/util/util"
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
-	frpIo "github.com/fatedier/golib/io"
 	libdial "github.com/fatedier/golib/net/dial"
 	fmux "github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
@@ -119,9 +118,12 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 		var dialOptions []libdial.DialOption
 		protocol := "tcp"
 		dialOptions = append(dialOptions,
-			libdial.WithProtocol(protocol),                       // 设置使用的协议
-			libdial.WithTimeout(time.Duration(10)*time.Second),   // 设置连接超时时间
-			libdial.WithKeepAlive(time.Duration(10)*time.Second), // TODO 如何理解KeepAlive
+			libdial.WithProtocol(protocol),                         // 设置使用的协议
+			libdial.WithTimeout(time.Duration(10)*time.Second),     // 设置连接超时时间
+			libdial.WithKeepAlive(time.Duration(7200)*time.Second), // TODO 如何理解KeepAlive
+			libdial.WithProxy("", ""),                              // 设置frpc的代理
+			libdial.WithProxyAuth(nil),                             // 设置代理认证
+			libdial.WithTLSConfig(nil),
 		)
 		// frpc和frps之间建立TCP连接
 		frpcConn, err := libdial.Dial(
@@ -141,10 +143,10 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 
 		// 创建一个基于tcp的io多路复用
 		fmuxCfg := fmux.DefaultConfig()
-		fmuxCfg.KeepAliveInterval = time.Duration(15) * time.Second
+		fmuxCfg.KeepAliveInterval = time.Duration(60) * time.Second
 		fmuxCfg.LogOutput = io.Discard
 		// 创建session 通过这个session,可以复用连接
-		session, err := fmux.Client(conn, fmuxCfg)
+		session, err := fmux.Client(frpcConn, fmuxCfg)
 		if err != nil {
 			log.Warn("tcp mux get session error: %v", err)
 		}
@@ -180,9 +182,11 @@ func (svr *SocketServer) handleProxyTask() {
 	for task := range svr.proxyTasks {
 		task := task
 		go func() {
-			if _, _, err := frpIo.Join(task.originConn, task.frpcConn); err != nil {
-				log.Warn("register control error: %v", err)
-			}
+			//if _, _, err := frpIo.Join(task.originConn, task.frpcConn); err != nil {
+			//	log.Warn("register control error: %v", err)
+			//}
+			go io.Copy(task.originConn, task.frpcConn)
+			go io.Copy(task.frpcConn, task.originConn)
 		}()
 	}
 }
