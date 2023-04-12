@@ -9,6 +9,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/version"
 	"github.com/fatedier/frp/pkg/util/xlog"
 	frpIo "github.com/fatedier/golib/io"
+	libdial "github.com/fatedier/golib/net/dial"
 	fmux "github.com/hashicorp/yamux"
 	"github.com/pkg/errors"
 	"io"
@@ -115,7 +116,18 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 			conn.Close()
 		}
 		// TODO 通过租户ID和frps之间建立连接，直接通过SVC名字拼接出来即可
-		frpcConn, err := net.Dial("tcp", "127.0.0.1:7001")
+		var dialOptions []libdial.DialOption
+		protocol := "tcp"
+		dialOptions = append(dialOptions,
+			libdial.WithProtocol(protocol),                       // 设置使用的协议
+			libdial.WithTimeout(time.Duration(10)*time.Second),   // 设置连接超时时间
+			libdial.WithKeepAlive(time.Duration(10)*time.Second), // TODO 如何理解KeepAlive
+		)
+		// frpc和frps之间建立TCP连接
+		frpcConn, err := libdial.Dial(
+			net.JoinHostPort("127.0.0.1", "7001"),
+			dialOptions...,
+		)
 		if err != nil {
 			err = errors.Wrapf(err, "dail frps[127.0.0.1:7001] error")
 			log.Warn("register control error: %v", err)
@@ -126,10 +138,25 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 			conn.Close()
 		}
 		log.Info("%s register successful", tenantId)
-		svr.proxyTasks <- &Proxy{tenantId: tenantId, originConn: conn, frpcConn: frpcConn}
+
+		// 创建一个基于tcp的io多路复用
+		fmuxCfg := fmux.DefaultConfig()
+		fmuxCfg.KeepAliveInterval = time.Duration(15) * time.Second
+		fmuxCfg.LogOutput = io.Discard
+		// 创建session 通过这个session,可以复用连接
+		session, err := fmux.Client(conn, fmuxCfg)
+		if err != nil {
+			log.Warn("tcp mux get session error: %v", err)
+		}
+		stream, err := session.OpenStream()
+		if err != nil {
+			log.Warn("tcp mux get stream error: %v", err)
+		}
+
+		svr.proxyTasks <- &Proxy{tenantId: tenantId, originConn: conn, frpcConn: stream}
 
 		// 把frpc的登录消息转发给frps
-		if err = msg.WriteMsg(frpcConn, m); err != nil {
+		if err = msg.WriteMsg(stream, m); err != nil {
 			err = errors.Wrapf(err, "write msg to frps error")
 			log.Warn("proxy login message error: %v", err)
 			_ = msg.WriteMsg(conn, &msg.LoginResp{
