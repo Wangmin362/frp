@@ -205,6 +205,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go func() {
+		// frps开始监听
 		_ = svr.muxer.Serve()
 	}()
 	ln = svr.muxer.DefaultListener()
@@ -297,6 +298,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// frp tls listener
+	// TODO 支持HTTPS
 	svr.tlsListener = svr.muxer.Listen(2, 1, func(data []byte) bool {
 		// tls first byte can be 0x16 only when vhost https port is not same with bind port
 		return int(data[0]) == frpNet.FRPTLSHeadByte || int(data[0]) == 0x16
@@ -341,6 +343,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 func (svr *Service) Run() {
 	if svr.rc.NatHoleController != nil {
+		// TODO 这里是在干嘛？ 看起来是和UDP相关的东西
 		go svr.rc.NatHoleController.Run()
 	}
 	if svr.kcpListener != nil {
@@ -353,6 +356,7 @@ func (svr *Service) Run() {
 	go svr.HandleListener(svr.websocketListener)
 	go svr.HandleListener(svr.tlsListener)
 
+	// 基于TCP的监听
 	svr.HandleListener(svr.listener)
 }
 
@@ -365,6 +369,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 	)
 
 	_ = conn.SetReadDeadline(time.Now().Add(connReadTimeout))
+	// 读取frpc发送过来的消息
 	if rawMsg, err = msg.ReadMsg(conn); err != nil {
 		log.Trace("Failed to read message: %v", err)
 		conn.Close()
@@ -379,9 +384,11 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 			Login:         *m,
 			ClientAddress: conn.RemoteAddr().String(),
 		}
+		// TODO 默认情况下是不需要进行认证的
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
 			m = &retContent.Login
+			// TODO 认证成功之后，到底注册了什么？
 			err = svr.RegisterControl(conn, m)
 		}
 
@@ -393,7 +400,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 				Version: version.Full(),
 				Error:   util.GenerateResponseErrorString("register control error", err, svr.cfg.DetailedErrorsToClient),
 			})
-			conn.Close()
+			conn.Close() // 注册失败的话关闭frpc和frps之间的连接
 		}
 	case *msg.NewWorkConn:
 		if err := svr.RegisterWorkConn(conn, m); err != nil {
@@ -519,7 +526,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 		return
 	}
 
-	// Check auth.
+	// Check auth. 认证
 	if err = svr.authVerifier.VerifyLogin(loginMsg); err != nil {
 		return
 	}
@@ -529,6 +536,7 @@ func (svr *Service) RegisterControl(ctlConn net.Conn, loginMsg *msg.Login) (err 
 		oldCtl.allShutdown.WaitDone()
 	}
 
+	// 每一个frpc注册上来之后需要启动Controller
 	ctl.Start()
 
 	// for statistics

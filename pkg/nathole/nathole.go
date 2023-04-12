@@ -43,6 +43,7 @@ type SidRequest struct {
 	NotifyCh chan struct{}
 }
 
+// Controller TODO NetHoleController主要是在干嘛？
 type Controller struct {
 	listener *net.UDPConn
 

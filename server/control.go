@@ -208,13 +208,14 @@ func (ctl *Control) Start() {
 		ServerUDPPort: ctl.serverCfg.BindUDPPort, // frps通过这个端口监听udp协议数据
 		Error:         "",
 	}
-	// 控制器启动后，立马回复frpc注册响应
+	// Controller启动后，立马回复frpc注册响应
 	_ = msg.WriteMsg(ctl.conn, loginRespMsg)
 
 	// 读取sendCh通道中的数据，发送给frpc
 	go ctl.writer()
 	// 实际上还是建立了多个连接，只不过在开启TCP_MUX的情况下，复用了一个连接
 	for i := 0; i < ctl.poolCount; i++ {
+		// 根据连接池的配置大小发送ReqWorkConn消息 frpc接收到该消息后，每来一个ReqWorkConn消息，frpc就和frps之间建立一个连接
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	}
 
@@ -438,6 +439,7 @@ func (ctl *Control) manager() {
 		// Don't need application heartbeat here.
 		// yamux will do same thing.
 	} else {
+		// 如果没有使用yamux的话，就需要手动发送心跳包
 		heartbeat := time.NewTicker(time.Second)
 		defer heartbeat.Stop()
 		heartbeatCh = heartbeat.C
@@ -446,17 +448,18 @@ func (ctl *Control) manager() {
 	for {
 		select {
 		case <-heartbeatCh:
+			// 如果超过90秒都没有收到心跳包，说明连接出现了异常
 			if time.Since(ctl.lastPing) > time.Duration(ctl.serverCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				return
 			}
-		case rawMsg, ok := <-ctl.readCh:
+		case rawMsg, ok := <-ctl.readCh: // 读取frpc发送给frps的消息
 			if !ok {
 				return
 			}
 
 			switch m := rawMsg.(type) {
-			case *msg.NewProxy:
+			case *msg.NewProxy: // frps接收到frpc发送的代理服务数据包，frps接收到后应该需要开启对应的端口进行监听
 				content := &plugin.NewProxyContent{
 					User: plugin.UserInfo{
 						User:  ctl.loginMsg.User,
@@ -466,6 +469,7 @@ func (ctl *Control) manager() {
 					NewProxy: *m,
 				}
 				var remoteAddr string
+				// 添加一个新的代理
 				retContent, err := ctl.pluginManager.NewProxy(content)
 				if err == nil {
 					m = &retContent.NewProxy
