@@ -43,6 +43,7 @@ import (
 
 type ControlManager struct {
 	// controls indexed by run id
+	// TODO key为frps分配给frpc的RunID, Control为每个frpc的控制逻辑
 	ctlsByRunID map[string]*Control
 
 	mu sync.RWMutex
@@ -84,42 +85,56 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 
 type Control struct {
 	// all resource managers and controllers
+	// TODO 资源控制器控制着什么资源？是对于什么东西的抽象
 	rc *controller.ResourceController
 
 	// proxy manager
+	// 代理管理器，代理管理器的代理肯定是由frpc注册上来的
 	pxyManager *proxy.Manager
 
 	// plugin manager
+	// TODO 插件管理器有哪些？在哪个阶段发生作用？
 	pluginManager *plugin.Manager
 
 	// verifies authentication based on selected method
+	// 认证器
 	authVerifier auth.Verifier
 
 	// login message
+	// 每个frpc注册到frps的时候会发送注册消息
 	loginMsg *msg.Login
 
 	// control connection
+	// frps和frpc之间的连接
 	conn net.Conn
 
 	// put a message in this channel to send it over control connection to client
-	sendCh chan (msg.Message)
+	// 写入到这个channel当中的消息会被发送给frpc
+	sendCh chan msg.Message
 
 	// read from this channel to get the next message sent by client
-	readCh chan (msg.Message)
+	// frps从这个channel中读取frpc发送的消息
+	readCh chan msg.Message
 
 	// work connections
+	// 每个frpc还会和frpc之间建立一个工作连接，也就是代理真实数据的连接
 	workConnCh chan net.Conn
 
 	// proxies in one client
+	// 这里的代理内容肯定是frpc注册上来的
+	// TODO 这个属性和ProxyManager有何区别？
 	proxies map[string]proxy.Proxy
 
 	// pool count
+	// TODO 连接池的大小
 	poolCount int
 
 	// ports used, for limitations
+	// TODO 端口使用数量，似乎这里会限制frps监听的端口数量
 	portsUsedNum int
 
 	// last time got the Ping message
+	// frps收到的frpc发送的心跳包的时间，每收到一次心跳包，就会更新这个时间
 	lastPing time.Time
 
 	// A new run id will be generated when a new client login.
@@ -138,6 +153,7 @@ type Control struct {
 	mu sync.RWMutex
 
 	// Server configuration information
+	// Server的配置
 	serverCfg config.ServerCommonConf
 
 	xl  *xlog.Logger
@@ -189,17 +205,21 @@ func (ctl *Control) Start() {
 	loginRespMsg := &msg.LoginResp{
 		Version:       version.Full(),
 		RunID:         ctl.runID,
-		ServerUDPPort: ctl.serverCfg.BindUDPPort,
+		ServerUDPPort: ctl.serverCfg.BindUDPPort, // frps通过这个端口监听udp协议数据
 		Error:         "",
 	}
+	// 控制器启动后，立马回复frpc注册响应
 	_ = msg.WriteMsg(ctl.conn, loginRespMsg)
 
+	// 读取sendCh通道中的数据，发送给frpc
 	go ctl.writer()
+	// 实际上还是建立了多个连接，只不过在开启TCP_MUX的情况下，复用了一个连接
 	for i := 0; i < ctl.poolCount; i++ {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	}
 
 	go ctl.manager()
+	// 读取readCh通道中的数据，该数据是frpc发送给frps的消息
 	go ctl.reader()
 	go ctl.stoper()
 }

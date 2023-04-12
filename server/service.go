@@ -112,6 +112,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	svr = &Service{
+		// ControlManager并不难，实际上就是一个Map,key为frpc的RunID,value为每个frpc的控制逻辑
 		ctlManager:    NewControlManager(),
 		pxyManager:    proxy.NewManager(),
 		pluginManager: plugin.NewManager(),
