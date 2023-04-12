@@ -118,6 +118,7 @@ type Control struct {
 
 	// work connections
 	// 每个frpc还会和frpc之间建立一个工作连接，也就是代理真实数据的连接
+	// frps与frpc之间的连接池，大小为 poolCount + 10
 	workConnCh chan net.Conn
 
 	// proxies in one client
@@ -220,8 +221,9 @@ func (ctl *Control) Start() {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	}
 
+	// 主要是处理frpc发送给frps的消息
 	go ctl.manager()
-	// 读取readCh通道中的数据，该数据是frpc发送给frps的消息
+	// 从连接当中读取frpc发送给frps的消息，并把消息写入到readCh chan当中
 	go ctl.reader()
 	go ctl.stoper()
 }
