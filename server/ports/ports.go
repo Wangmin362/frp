@@ -9,8 +9,9 @@ import (
 )
 
 const (
-	MinPort                    = 1
-	MaxPort                    = 65535
+	MinPort = 1
+	MaxPort = 65535
+	// MaxPortReservedDuration 最多保留一天
 	MaxPortReservedDuration    = time.Duration(24) * time.Hour
 	CleanReservedPortsInterval = time.Hour
 )
@@ -30,12 +31,15 @@ type PortCtx struct {
 }
 
 type Manager struct {
+	// TODO 什么叫做保留的端口？
 	reservedPorts map[string]*PortCtx
-	usedPorts     map[int]*PortCtx
-	freePorts     map[int]struct{}
+	// 已经使用的端口
+	usedPorts map[int]*PortCtx
+	// 还未使用的端口
+	freePorts map[int]struct{}
 
-	bindAddr string
-	netType  string
+	bindAddr string // 绑定地址
+	netType  string // TCP还是UDP
 	mu       sync.Mutex
 }
 
@@ -47,6 +51,8 @@ func NewManager(netType string, bindAddr string, allowPorts map[int]struct{}) *M
 		bindAddr:      bindAddr,
 		netType:       netType,
 	}
+
+	// 如果没有指定允许的端口，那么1-65535端口都是可以使用的
 	if len(allowPorts) > 0 {
 		for port := range allowPorts {
 			pm.freePorts[port] = struct{}{}
@@ -60,6 +66,8 @@ func NewManager(netType string, bindAddr string, allowPorts map[int]struct{}) *M
 	return pm
 }
 
+// Acquire 当新增一个代理服务的时候，应该向PortManager申请一个可用端口
+// TODO port难道可以不等于realPort么？  必须是相等的吧
 func (pm *Manager) Acquire(name string, port int) (realPort int, err error) {
 	portCtx := &PortCtx{
 		ProxyName:  name,
@@ -132,6 +140,7 @@ func (pm *Manager) Acquire(name string, port int) (realPort int, err error) {
 	return
 }
 
+// isPortAvailable 判断某个端口是否可以使用的标准就是看看能不能监听这个端口
 func (pm *Manager) isPortAvailable(port int) bool {
 	if pm.netType == "udp" {
 		addr, err := net.ResolveUDPAddr("udp", net.JoinHostPort(pm.bindAddr, strconv.Itoa(port)))
@@ -154,6 +163,7 @@ func (pm *Manager) isPortAvailable(port int) bool {
 	return true
 }
 
+// Release 释放一个端口，在frpc取消某个代理服务的时候，应该关闭这个端口
 func (pm *Manager) Release(port int) {
 	pm.mu.Lock()
 	defer pm.mu.Unlock()
@@ -168,9 +178,11 @@ func (pm *Manager) Release(port int) {
 // Release reserved port if it isn't used in last 24 hours.
 func (pm *Manager) cleanReservedPortsWorker() {
 	for {
+		// 每一小时执行一次
 		time.Sleep(CleanReservedPortsInterval)
 		pm.mu.Lock()
 		for name, ctx := range pm.reservedPorts {
+			// 一旦超过24个小时，就从保留端口当中删除这个端口
 			if ctx.Closed && time.Since(ctx.UpdateTime) > MaxPortReservedDuration {
 				delete(pm.reservedPorts, name)
 			}

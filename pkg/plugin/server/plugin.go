@@ -29,6 +29,7 @@ const (
 	OpNewUserConn = "NewUserConn"
 )
 
+// Plugin TODO 如何理解对于一个插件的抽象  目前似乎只有一个关于HTTP的抽象
 type Plugin interface {
 	Name() string
 	IsSupport(op string) bool

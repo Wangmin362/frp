@@ -25,11 +25,17 @@ import (
 )
 
 type Manager struct {
-	loginPlugins       []Plugin
-	newProxyPlugins    []Plugin
-	closeProxyPlugins  []Plugin
-	pingPlugins        []Plugin
+	// TODO 登录插件，用于处理frpc发送的登录消息
+	loginPlugins []Plugin
+	// TODO 新代理插件，用于处理frpc发送的代理消息
+	newProxyPlugins []Plugin
+	// TODO 关闭代理插件，用于处理frpc关闭代理消息
+	closeProxyPlugins []Plugin
+	// TODO 心跳插件，用于处理frpc发送的心跳包
+	pingPlugins []Plugin
+	// TODO 用于发送给frpc，让frpc主动和frps连理一个连接
 	newWorkConnPlugins []Plugin
+	// TODO 暂时不知道这个插件是干嘛的？
 	newUserConnPlugins []Plugin
 }
 
@@ -80,6 +86,7 @@ func (m *Manager) Login(content *LoginContent) (*LoginContent, error) {
 	)
 	reqid, _ := util.RandID()
 	xl := xlog.New().AppendPrefix("reqid: " + reqid)
+	// TODO 难怪frpc总是从context中取出logger，原来logger是在frps中放入的
 	ctx := xlog.NewContext(context.Background(), xl)
 	ctx = NewReqidContext(ctx, reqid)
 

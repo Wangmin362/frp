@@ -24,7 +24,7 @@ import (
 	"github.com/fatedier/frp/server/visitor"
 )
 
-// All resource managers and controllers
+// ResourceController All resource managers and controllers
 type ResourceController struct {
 	// Manage all visitor listeners
 	VisitorManager *visitor.Manager

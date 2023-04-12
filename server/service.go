@@ -58,7 +58,7 @@ const (
 	vhostReadWriteTimeout time.Duration = 30 * time.Second
 )
 
-// Server service
+// Service Server service
 type Service struct {
 	// Dispatch connections to different handlers listen on same port
 	muxer *mux.Mux
@@ -113,22 +113,28 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 	svr = &Service{
 		// ControlManager并不难，实际上就是一个Map,key为frpc的RunID,value为每个frpc的控制逻辑
-		ctlManager:    NewControlManager(),
-		pxyManager:    proxy.NewManager(),
+		ctlManager: NewControlManager(),
+		// 代理管理器，实际上也是一个map, key为代理名字，value为代理的配置内容
+		pxyManager: proxy.NewManager(),
+		// TODO 插件管理器 目前似乎只有HTTP插件 插件的执行发生在哪个生命周期
 		pluginManager: plugin.NewManager(),
+		// TODO 资源管理器，似乎是在管理端口资源
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
+			// 用于管理端口，并判断某个端口当前是否可用
 			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UDPPortManager: ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
+		// TODO HTTP路由 如果是HTTPS呢？ 也是使用这个路由么？
 		httpVhostRouter: vhost.NewRouters(),
-		authVerifier:    auth.NewAuthVerifier(cfg.ServerConfig),
-		tlsConfig:       tlsConfig,
-		cfg:             cfg,
+		// TODO 认证器
+		authVerifier: auth.NewAuthVerifier(cfg.ServerConfig),
+		tlsConfig:    tlsConfig,
+		cfg:          cfg,
 	}
 
 	// Create tcpmux httpconnect multiplexer.
-	// TODO TCP多路复用器,它是如何工作的？
+	// TODO TCP多路复用器,它是如何工作的？ 答：本质上是通过先发送HTTP CONNECT方法建立的隧道，然后在建立好的隧道之上传输数据
 	if cfg.TCPMuxHTTPConnectPort > 0 {
 		var l net.Listener
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))
@@ -146,7 +152,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		log.Info("tcpmux httpconnect multiplexer listen on %s, passthough: %v", address, cfg.TCPMuxPassthrough)
 	}
 
-	// Init all plugins
+	// Init all plugins TODO 插件管理器这一块的内容暂时用不到
 	pluginNames := make([]string, 0, len(cfg.HTTPPlugins))
 	for n := range cfg.HTTPPlugins {
 		pluginNames = append(pluginNames, n)
@@ -160,12 +166,15 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr.rc.PluginManager = svr.pluginManager
 
 	// Init group controller
+	// TODO
 	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
 
 	// Init HTTP group controller
+	// TODO
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init TCP mux group controller
+	// TODO
 	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
 
 	// Init 404 not found page
@@ -185,6 +194,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client.
+	// 监听frps配置的端口
 	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
 	ln, err := net.Listen("tcp", address)
 	if err != nil {

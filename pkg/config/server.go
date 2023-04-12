@@ -61,6 +61,7 @@ type ServerCommonConf struct {
 	QUICMaxIncomingStreams int `ini:"quic_max_incoming_streams" json:"quic_max_incoming_streams" validate:"gte=0"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
+	// TODO 这个配置是干嘛用的？
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
@@ -161,6 +162,8 @@ type ServerCommonConf struct {
 	// AllowPorts specifies a set of ports that clients are able to proxy to.
 	// If the length of this value is 0, all ports are allowed. By default,
 	// this value is an empty set.
+	// TODO 用户如何指定允许的端口？
+	// 在代码当中，如果没有指定这个参数，那么默认[1, 65535]端口都是可以正常使用的
 	AllowPorts map[int]struct{} `ini:"-" json:"-"`
 	// Original string.
 	AllowPortsStr string `ini:"-" json:"-"`
@@ -197,6 +200,7 @@ type ServerCommonConf struct {
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `ini:"user_conn_timeout" json:"user_conn_timeout"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
+	// TODO 这个参数如何使用
 	HTTPPlugins map[string]plugin.HTTPPluginOptions `ini:"-" json:"http_plugins"`
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
