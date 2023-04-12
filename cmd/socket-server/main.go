@@ -29,6 +29,8 @@ func main() {
 		return
 	}
 
+	log.InitLog("console", "console", "trace", 10, false)
+
 	socketServer := &SocketServer{
 		proxyTasks: make(chan *Proxy, 10000),
 	}
@@ -80,6 +82,8 @@ func (svr *SocketServer) HandleListener(l net.Listener) {
 				}
 				go svr.handleConnection(ctx, stream)
 			}
+			// TODO 这里必须要使用tcp mux的方式，否则无法从连接中获取到正确的消息
+			//go svr.handleConnection(ctx, frpConn)
 		}(ctx, originConn)
 	}
 }
@@ -124,20 +128,34 @@ func (svr *SocketServer) handleConnection(ctx context.Context, conn net.Conn) {
 		log.Info("%s register successful", tenantId)
 		svr.proxyTasks <- &Proxy{tenantId: tenantId, originConn: conn, frpcConn: frpcConn}
 
+		// 把frpc的登录消息转发给frps
+		if err = msg.WriteMsg(frpcConn, m); err != nil {
+			err = errors.Wrapf(err, "write msg to frps error")
+			log.Warn("proxy login message error: %v", err)
+			_ = msg.WriteMsg(conn, &msg.LoginResp{
+				Version: version.Full(),
+				Error:   util.GenerateResponseErrorString("proxy login message error", err, false),
+			})
+			frpcConn.Close()
+			conn.Close()
+		}
 	default:
 		err = errors.Errorf("%v msg not support", m)
-		log.Warn("register control error: %v", err)
+		log.Warn("socket-server not support message type: %v", err)
 		_ = msg.WriteMsg(conn, &msg.LoginResp{
 			Version: version.Full(),
-			Error:   util.GenerateResponseErrorString("register control error", err, false),
+			Error:   util.GenerateResponseErrorString("socket-server not support message type", err, false),
 		})
 	}
 }
 
 func (svr *SocketServer) handleProxyTask() {
 	for task := range svr.proxyTasks {
-		if _, _, err := frpIo.Join(task.originConn, task.frpcConn); err != nil {
-			log.Warn("register control error: %v", err)
-		}
+		task := task
+		go func() {
+			if _, _, err := frpIo.Join(task.originConn, task.frpcConn); err != nil {
+				log.Warn("register control error: %v", err)
+			}
+		}()
 	}
 }
