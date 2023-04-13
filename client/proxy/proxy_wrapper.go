@@ -56,7 +56,8 @@ type Wrapper struct {
 	// event handler
 	handler event.Handler
 
-	// TODO 似乎是和代理健康状态有关的东西
+	// 似乎是和代理健康状态有关的东西，0代表健康 1代表非健康
+	// TODO 好歹这里用个枚举常量表示啊，0和1是个什么鬼。。。
 	health           uint32
 	lastSendStartMsg time.Time
 	lastStartErr     time.Time

@@ -153,10 +153,11 @@ func (svr *Service) Run() error {
 		}
 	}
 
-	// TODO 如果frpc和frps之间的连接断开了,这里会尝试重新建立连接
+	// 如果frpc和frps之间的连接断开了,这里会尝试重新建立连接
+	// TODO 这里的逻辑和上面逻辑很类似，能否优化这一块代码
 	go svr.keepControllerWorking()
 
-	// 启动前端UI界面
+	// 开启HTTP服务，当启动frpc的web界面时，web界面可以通过API接口查询相应的数据
 	if svr.cfg.AdminPort != 0 {
 		// Init admin server assets
 		assets.Load(svr.cfg.AssetsDir)

@@ -15,6 +15,7 @@ import (
 )
 
 type Manager struct {
+	// 该channel中放入的数据，最终会被发送给frps
 	sendCh chan msg.Message
 	// ProxyManager管理的代理
 	proxies map[string]*Wrapper
@@ -141,7 +142,7 @@ func (pm *Manager) Reload(pxyCfgs map[string]config.ProxyConf) {
 			pm.proxies[name] = pxy
 			addPxyNames = append(addPxyNames, name)
 
-			// TODO 代理的启动似乎是和监控、健康状态相关的东西。 还有非常重要的一点，frpc会向frps发送代理类型的消息
+			// 代理启动后主要是开启了监控、健康状态相关的东西。 还有非常重要的一点，frpc会向frps发送代理类型的消息
 			pxy.Start()
 		}
 	}

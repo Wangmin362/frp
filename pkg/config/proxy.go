@@ -72,6 +72,7 @@ type LocalSvrConf struct {
 	// Plugin specifies what plugin should be used for ng. If this value
 	// is set, the LocalIp and LocalPort values will be ignored. By default,
 	// this value is "".
+	// TODO plugin有啥用？用户如何配置plugin?
 	Plugin string `ini:"plugin" json:"plugin"`
 	// PluginParams specify parameters to be passed to the plugin, if one is
 	// being used. By default, this value is an empty map.
@@ -91,6 +92,7 @@ type HealthCheckConf struct {
 	// If the type is "http", a GET request will be made to the endpoint
 	// specified by HealthCheckURL. If the response is not a 200, the health
 	// check fails.
+	// TODO 如何理解健康检测
 	HealthCheckType string `ini:"health_check_type" json:"health_check_type"` // tcp | http
 	// HealthCheckTimeoutS specifies the number of seconds to wait for a health
 	// check attempt to connect. If the timeout is reached, this counts as a
@@ -117,6 +119,7 @@ type BaseProxyConf struct {
 	// ProxyType specifies the type of this  Valid values include "tcp",
 	// "udp", "http", "https", "stcp", and "xtcp". By default, this value is
 	// "tcp".
+	// 在不指定代理类型的情况下，默认就是tcp类型
 	ProxyType string `ini:"type" json:"type"`
 
 	// UseEncryption controls whether or not communication with the server will

@@ -47,30 +47,33 @@ type Control struct {
 	vm *VisitorManager
 
 	// control connection
-	// TODO 如何理解这个连接? 这个连接就是frpc和frps之间的连接么？
+	// conn就是frpc和frps之间的连接，这个连接用于frps控制frpc，所以称之为控制逻辑
 	conn net.Conn
 
-	// TODO 连接管理器用于维护frpc和frps之间的TCP连接，并且可以做到IO多路复用
+	// 连接管理器用于维护frpc和frps之间的TCP连接，如果开启了TCP_MUX,连接管理器可以多路复用
 	cm *ConnectionManager
 
 	// put a message in this channel to send it over control connection to server
-	// TODO 用于frpc发消息给frps
+	// 用于frpc发消息给frps
 	sendCh chan msg.Message
 
 	// read from this channel to get the next message sent by server
-	// TODO 用于接受frps发送给frpc的消息
+	// 用于接受frps发送给frpc的消息
 	readCh chan msg.Message
 
 	// goroutines can block by reading from this channel, it will be closed only in reader() when control connection is closed
+	// 如果frpc和frps之间的连接被关闭了，那么这个channel会被关闭
 	closedCh chan struct{}
 
+	// 当frpc和frps之间的连接被关闭之后（也就是closeCh被关闭），frpc会做一些清理动作，等到所有的清理动作完成，会把closeDoneCh通道关闭
 	closedDoneCh chan struct{}
 
 	// last time got the Pong message
+	// 最近一次收到的frps的心跳响应数据包，如果超过90秒没有收到frps的响应包，说明frpc和frps之间建立的连接有问题
 	lastPong time.Time
 
 	// The client configuration
-	// frpc的配置
+	// frpc的Common配置
 	clientCfg config.ClientCommonConf
 
 	readerShutdown     *shutdown.Shutdown
@@ -127,7 +130,7 @@ func NewControl(
 }
 
 func (ctl *Control) Run() {
-	// TODO 主要是处理frpc和frps之间的消息交互
+	// 主要是处理frpc和frps之间的消息交互
 	go ctl.worker()
 
 	// start all proxies
@@ -140,7 +143,11 @@ func (ctl *Control) Run() {
 	go ctl.vm.Run()
 }
 
-// HandleReqWorkConn TODO 这玩意干嘛的?
+// HandleReqWorkConn
+// 1、和frps建立一个新的连接。 如果是开启了tcp_mux，那么新建立的连接会复用control conn
+// 2、通过新建立的连接发送NewWorkConn消息 frps收到此消息后，会把这个新连接放入到连接池当中
+// 3、等待frps发送StartWorkConn消息，这里是阻塞等待。一旦用户需要发送数据时，frps就会发送StartWorkConn消息，
+// 此协程就会个企业内部服务建立连接，开始代理用户数据
 func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 	xl := ctl.xl
 	// 拿到一个连接
@@ -303,8 +310,8 @@ func (ctl *Control) msgHandler() {
 	ctl.lastPong = time.Now()
 	for {
 		select {
-		case <-hbSendCh: // 默认每30秒一次心跳包
-			// TODO frpc发送给frps心跳包
+		case <-hbSendCh:
+			// frpc发送给frps心跳包，默认每30秒一次心跳包
 			// send heartbeat to server
 			xl.Debug("send heartbeat to server")
 			pingMsg := &msg.Ping{}
@@ -314,7 +321,7 @@ func (ctl *Control) msgHandler() {
 			}
 			// 发送Ping心跳包给frps
 			ctl.sendCh <- pingMsg
-		case <-hbCheckCh: // 默认每秒钟检查一次心跳是否正常
+		case <-hbCheckCh: // 默认每秒钟检查一次心跳是否正常，超过90s frps没有响应心跳，说明frps和frpc之间的连接异常
 			if time.Since(ctl.lastPong) > time.Duration(ctl.clientCfg.HeartbeatTimeout)*time.Second {
 				xl.Warn("heartbeat timeout")
 				// let reader() stop
@@ -328,12 +335,12 @@ func (ctl *Control) msgHandler() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
-				// TODO 这个数据包又是干嘛的呢?  猜测这里就是frpc需要真是代理数据包的地方
+				// 这个数据包又是干嘛的呢?  猜测这里就是frpc需要真是代理数据包的地方
 				// 答：这里并非在代理真正的数据包，而是在建立frpc和frps tcp连接
-				// 从名字上可以看出来，这里实际上是在建立一条wrok conn，也就是真正代理数据包的连接
+				// 从名字上可以看出来，这里实际上是在建立一条work conn，也就是真正代理数据包的连接
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
-				// TODO frps啥时候会发送这个数据包呢?
+				// frps啥时候会发送这个数据包呢?
 				// 答：frpc在启动所有的代理的时候，会向frps发送每个代理的信息，当frps处理启动对应端口监听时就会返回代理类型响应的消息
 				// 当frpc收到frps响应的代理消息之后，将会把代理的状态设置为Running状态，此时代理可以开始处理正常的业务数据了
 				ctl.HandleNewProxyResp(m)
@@ -353,17 +360,20 @@ func (ctl *Control) msgHandler() {
 
 // If controler is notified by closedCh, reader and writer and handler will exit
 func (ctl *Control) worker() {
-	// TODO 这里主要做了以下几件事情: 1, 每隔30秒给frps发送一个Ping类型的心跳包 2, 每隔一秒中检查以下frpc和frps之间的心跳是否正常
-	// TODO 3. 从readCh channel中读取消息(该消息是frps发送给frpc的消息), 可能是以下三种类型之一:
-	// TODO 3.1, msg.ReqWorkConn
-	// TODO 3.2, msg.NewProxyResp 当ctl.pm.Reload(ctl.pxyCfgs)启动所有代理的时候，frpc会把代理消息发送给frps，frps成功处理之后会返回这种类型的消息
-	// TODO 3.3, msg.Pong  这个是frps返回的心跳响应
+	// 这里主要做了以下几件事情: 1, 每隔30秒给frps发送一个Ping类型的心跳包 2, 每隔一秒中检查以下frpc和frps之间的心跳是否正常
+	// 3. 从readCh channel中读取消息(该消息是frps发送给frpc的消息), 可能是以下三种类型之一:
+	// 3.1, msg.ReqWorkConn
+	// 3.2, msg.NewProxyResp 当ctl.pm.Reload(ctl.pxyCfgs)启动所有代理的时候，frpc会把代理消息发送给frps，frps成功处理之后会返回这种类型的消息
+	// 3.3, msg.Pong  这个是frps返回的心跳响应
 	go ctl.msgHandler()
-	// TODO 读取frps发送给frpc的消息,并把消息发送到readCh channel当中
+
+	// 读取frps发送给frpc的消息,并把消息丢到readCh chan当中
 	go ctl.reader()
-	// TODO 从writeCh channel中读取消息并发送给frps,实际上就是frpx需要发送给frps的Ping消息
+
+	// 从writeCh chan中读取消息并发送给frps, 譬如心跳消息
 	go ctl.writer()
 
+	// 什么时候会关闭这个chan? 答：frpc和frps之间的连接被断开的时候就会关闭这个channel
 	<-ctl.closedCh
 	// close related channels and wait until other goroutines done
 	close(ctl.readCh)

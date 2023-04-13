@@ -43,13 +43,14 @@ import (
 
 // Proxy defines how to handle work connections for different proxy type.
 type Proxy interface {
-	// Run TODO 如何理解Run方法，似乎都是在生产插件
+	// Run TODO 感觉这个名字取得不咋地，实际上就是为了生成特定代理类型的插件，如果用户没有配置，那么啥事也不用干
 	Run() error
 
 	// InWorkConn accept work connections registered to server.
-	// TODO 如何理解这个方法
+	// 这个方法才是代理的核心，用户的数据就是通过这个方法转发给企业内部服务的
 	InWorkConn(net.Conn, *msg.StartWorkConn)
 
+	// Close TODO 这个方法名也取得不咋好，实际上是为了关闭插件
 	Close()
 }
 
@@ -129,7 +130,8 @@ type BaseProxy struct {
 type TCPProxy struct {
 	*BaseProxy
 
-	cfg         *config.TCPProxyConf
+	cfg *config.TCPProxyConf
+	// TODO 代理插件是用来干嘛的? 代理插件什么时候起作用？用户如何配置代理插件？
 	proxyPlugin plugin.Plugin
 }
 
@@ -149,6 +151,7 @@ func (pxy *TCPProxy) Close() {
 	}
 }
 
+// InWorkConn 这里的conn就是frpc和frps之间新建的连接，被代理的服务通过StartWorkConn来体现
 func (pxy *TCPProxy) InWorkConn(conn net.Conn, m *msg.StartWorkConn) {
 	HandleTCPWorkConnection(pxy.ctx, &pxy.cfg.LocalSvrConf, pxy.proxyPlugin, pxy.cfg.GetBaseInfo(), pxy.limiter,
 		conn, []byte(pxy.clientCfg.Token), m)
