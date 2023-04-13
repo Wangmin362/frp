@@ -66,7 +66,7 @@ type ServerCommonConf struct {
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
-	// 通过这个端口来转发HTTP协议数据
+	// Server通过监听这个端口，可以转发不同的域名的HTTP请求到不同的代理服务当中
 	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port" validate:"gte=0,lte=65535"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS

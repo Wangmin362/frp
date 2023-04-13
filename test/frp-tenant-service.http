@@ -13,3 +13,12 @@ Accept: application/json
 ### get tenant-b hellob
 GET http://{{tenant-b-addr}}/hello2
 Accept: application/json
+
+
+### vhost_http_port代理测试
+GET http://www.example-a.com:8080/hello1
+Accept: application/json
+
+### vhost_http_port代理测试
+GET http://www.example-b.com:8080/hello1
+Accept: application/json
