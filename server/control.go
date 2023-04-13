@@ -263,16 +263,17 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	var ok bool
 	// get a work connection from the pool
 	select {
+	// 如果连接池中取不到新的连接，就会进入default
 	case workConn, ok = <-ctl.workConnCh:
 		if !ok {
 			err = frpErr.ErrCtlClosed
 			return
 		}
-		xl.Debug("get work connection from pool")
+		xl.Debug("get work connection from pool, now usable conn poll size is %d", len(ctl.workConnCh))
 	default:
 		// no work connections available in the poll, send message to frpc to get more
 		if err = errors.PanicToError(func() {
-			// TODO 没有连接的话就请求建立一个连接
+			// 没有连接的话就请求建立一个连接
 			ctl.sendCh <- &msg.ReqWorkConn{}
 		}); err != nil {
 			return nil, fmt.Errorf("control is already closed")
@@ -295,6 +296,7 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	}
 
 	// When we get a work connection from pool, replace it with a new one.
+	// 当frps从连接池中取出一个连接之后，会要求frpc重新和frps之间建立一个连接
 	_ = errors.PanicToError(func() {
 		ctl.sendCh <- &msg.ReqWorkConn{}
 	})

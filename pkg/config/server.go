@@ -173,6 +173,7 @@ type ServerCommonConf struct {
 	// MaxPortsPerClient specifies the maximum number of ports a single client
 	// may proxy to. If this value is 0, no limit will be applied. By default,
 	// this value is 0.
+	// 每个frpc可以分配端口的最大数量
 	MaxPortsPerClient int64 `ini:"max_ports_per_client" json:"max_ports_per_client"`
 	// TLSOnly specifies whether to only accept TLS-encrypted connections.
 	// By default, the value is false.

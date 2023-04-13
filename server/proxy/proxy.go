@@ -292,6 +292,7 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	}
 
 	// try all connections from the pool
+	// frps从连接池中请求一个连接，同时向这个连接发送StartWorkConn消息，从而启动被阻塞的连接
 	workConn, err := pxy.GetWorkConnFromPool(userConn.RemoteAddr(), userConn.LocalAddr())
 	if err != nil {
 		return
@@ -324,7 +325,8 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	name := pxy.GetName()
 	proxyType := pxy.GetConf().GetBaseInfo().ProxyType
 	metrics.Server.OpenConnection(name, proxyType)
-	// 转发用户的数据发送给frpc，同时把frpc响应数据返回给用户
+	// 转发用户的数据发送给frpc，同时把frpc响应数据返回给用户 [双向流拷贝]
+	// 如果用户关闭了连接，那么user到frps，以及frps到frpc的连接都会被关闭
 	inCount, outCount, _ := frpIo.Join(local, userConn)
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
