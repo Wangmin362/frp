@@ -210,13 +210,13 @@ func runServer(cfg config.ServerCommonConf) (err error) {
 		log.Info("frps uses command line arguments for config")
 	}
 
-	// 实例化frps服务
+	// TODO 实例化frps服务 frpc服务创建之后，就开始监听bind_addr:bind_port地址了
 	svr, err := server.NewService(cfg)
 	if err != nil {
 		return err
 	}
 	log.Info("frps started successfully")
-	// TODO 启动frps服务
+	// 启动frps服务
 	svr.Run()
 	return
 }

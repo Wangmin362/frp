@@ -61,9 +61,11 @@ const (
 // Service Server service
 type Service struct {
 	// Dispatch connections to different handlers listen on same port
+	// TODO frps是如何区分不同的frpc的呢，答案应该就是这个
 	muxer *mux.Mux
 
 	// Accept connections from client
+	// 监听bind_addr:bind_port地址，等待客户端的连接
 	listener net.Listener
 
 	// Accept connections using kcp
@@ -118,7 +120,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		pxyManager: proxy.NewManager(),
 		// TODO 插件管理器 目前似乎只有HTTP插件 插件的执行发生在哪个生命周期
 		pluginManager: plugin.NewManager(),
-		// TODO 资源管理器，似乎是在管理端口资源
+		// TODO 资源管理器
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
 			// 用于管理端口，并判断某个端口当前是否可用
@@ -166,15 +168,15 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	svr.rc.PluginManager = svr.pluginManager
 
 	// Init group controller
-	// TODO
+	// TCP服务的负载均衡
 	svr.rc.TCPGroupCtl = group.NewTCPGroupCtl(svr.rc.TCPPortManager)
 
 	// Init HTTP group controller
-	// TODO
+	// HTTP服务负载均衡
 	svr.rc.HTTPGroupCtl = group.NewHTTPGroupController(svr.httpVhostRouter)
 
 	// Init TCP mux group controller
-	// TODO
+	// TCPMUX类型的负载均衡
 	svr.rc.TCPMuxGroupCtl = group.NewTCPMuxGroupCtl(svr.rc.TCPMuxHTTPConnectMuxer)
 
 	// Init 404 not found page
@@ -343,7 +345,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 func (svr *Service) Run() {
 	if svr.rc.NatHoleController != nil {
-		// TODO 这里是在干嘛？ 看起来是和UDP相关的东西
+		// 当用户指定了bind_udp_port参数时，就会通过NatHoleController来处理
 		go svr.rc.NatHoleController.Run()
 	}
 	if svr.kcpListener != nil {
@@ -384,11 +386,11 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 			Login:         *m,
 			ClientAddress: conn.RemoteAddr().String(),
 		}
-		// TODO 默认情况下是不需要进行认证的
+		// 默认情况下是不需要进行认证的，因为没有配置相关认证参数
 		retContent, err := svr.pluginManager.Login(content)
 		if err == nil {
 			m = &retContent.Login
-			// TODO 认证成功之后，到底注册了什么？
+			// 每一个frpc认证通过之后，都会生成一个Controller负责与frpc交互
 			err = svr.RegisterControl(conn, m)
 		}
 
@@ -433,7 +435,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 func (svr *Service) HandleListener(l net.Listener) {
 	// Listen for incoming connections from client.
 	for {
-		// frps接收到frpc请求建立连接
+		// frps等待frpc建立连接
 		c, err := l.Accept()
 		if err != nil {
 			log.Warn("Listener for incoming connections from client closed")
@@ -448,7 +450,7 @@ func (svr *Service) HandleListener(l net.Listener) {
 		log.Trace("start check TLS connection...")
 		originConn := c
 		var isTLS, custom bool
-		// 通过读取连接的第一个字节来判断是不是TLS连接
+		// 通过读取连接的第一个字节来判断是否采用了TLS
 		c, isTLS, custom, err = frpNet.CheckAndEnableTLSServerConnWithTimeout(c, svr.tlsConfig, svr.cfg.TLSOnly, connReadTimeout)
 		if err != nil {
 			log.Warn("CheckAndEnableTLSServerConnWithTimeout error: %v", err)

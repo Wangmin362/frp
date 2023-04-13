@@ -27,7 +27,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
-// TCPMuxGroupCtl manage all TCPMuxGroups
+// TCPMuxGroupCtl manage all TCPMuxGroups TCPMux类型的负载均衡的实现
 type TCPMuxGroupCtl struct {
 	groups map[string]*TCPMuxGroup
 

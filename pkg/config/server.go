@@ -147,6 +147,7 @@ type ServerCommonConf struct {
 	// TCPMux toggles TCP stream multiplexing. This allows multiple requests
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
+	// TODO 如果frps和frpc的TCP_MUX一个为false，一个为true会发生什么？
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.

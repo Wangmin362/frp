@@ -9,6 +9,7 @@ import (
 	"github.com/fatedier/frp/pkg/util/vhost"
 )
 
+// HTTPGroupController HTTP服务负载均衡代理的实现
 type HTTPGroupController struct {
 	// groups indexed by group name
 	groups map[string]*HTTPGroup

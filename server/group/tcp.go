@@ -24,7 +24,7 @@ import (
 	"github.com/fatedier/frp/server/ports"
 )
 
-// TCPGroupCtl manage all TCPGroups
+// TCPGroupCtl manage all TCPGroups tcp服务的负载均衡
 type TCPGroupCtl struct {
 	groups map[string]*TCPGroup
 
@@ -43,6 +43,7 @@ func NewTCPGroupCtl(portManager *ports.Manager) *TCPGroupCtl {
 
 // Listen is the wrapper for TCPGroup's Listen
 // If there are no group, we will create one here
+// port为代理服务配置的remote_port，需要负载均衡的代理服务的remote_port因该是一样的
 func (tgc *TCPGroupCtl) Listen(proxyName string, group string, groupKey string,
 	addr string, port int,
 ) (l net.Listener, realPort int, err error) {
@@ -100,6 +101,7 @@ func (tg *TCPGroup) Listen(proxyName string, group string, groupKey string, addr
 		if err != nil {
 			return
 		}
+		// 监听remote_port
 		tcpLn, errRet := net.Listen("tcp", net.JoinHostPort(addr, strconv.Itoa(port)))
 		if errRet != nil {
 			err = errRet
@@ -120,6 +122,7 @@ func (tg *TCPGroup) Listen(proxyName string, group string, groupKey string, addr
 		go tg.worker()
 	} else {
 		// address and port in the same group must be equal
+		// TODO 为啥一个组内的addr必须一致？ 端口一样不就好了
 		if tg.group != group || tg.addr != addr {
 			err = ErrGroupParamsInvalid
 			return

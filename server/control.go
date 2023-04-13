@@ -480,7 +480,7 @@ func (ctl *Control) manager() {
 				retContent, err := ctl.pluginManager.NewProxy(content)
 				if err == nil {
 					m = &retContent.NewProxy
-					// TODO 注册代理
+					// 注册代理，最主要的步骤就是监听代理所指定的remote_port端口
 					remoteAddr, err = ctl.RegisterProxy(m)
 				}
 

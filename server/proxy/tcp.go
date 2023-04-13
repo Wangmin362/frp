@@ -71,7 +71,7 @@ func (pxy *TCPProxy) Run() (remoteAddr string, err error) {
 
 	pxy.cfg.RemotePort = pxy.realPort
 	remoteAddr = fmt.Sprintf(":%d", pxy.realPort)
-	// TODO 这里应该会处理用户发送的真实流量
+	// 处理用户发送的真实流量
 	pxy.startListenHandler(pxy, HandleUserTCPConnection)
 	return
 }
