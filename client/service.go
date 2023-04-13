@@ -144,7 +144,7 @@ func (svr *Service) Run() error {
 		} else {
 			// login success
 			ctl := NewControl(svr.ctx, svr.runID, conn, cm, svr.cfg, svr.pxyCfgs, svr.visitorCfgs, svr.serverUDPPort, svr.authSetter)
-			// TODO 分析Controller的内容
+			// Controller中实现了真正的代理业务
 			ctl.Run()
 			svr.ctlMu.Lock()
 			svr.ctl = ctl

@@ -134,7 +134,7 @@ func (ctl *Control) Run() {
 	go ctl.worker()
 
 	// start all proxies
-	// 启动所有的代理 所谓的启动代理，实际上就把代理消息发送给frps，frps接收到代理消息之后会监听对应的端口
+	// 启动所有的代理 所谓的启动代理，实际上就把代理消息(NewProxy消息)发送给frps，frps接收到代理消息之后会监听对应的端口
 	// 当用户访问frps对应的端口时，frps需要把对应端口的数据转发给frpc合适的代理
 	ctl.pm.Reload(ctl.pxyCfgs)
 
@@ -341,7 +341,7 @@ func (ctl *Control) msgHandler() {
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
 				// frps啥时候会发送这个数据包呢?
-				// 答：frpc在启动所有的代理的时候，会向frps发送每个代理的信息，当frps处理启动对应端口监听时就会返回代理类型响应的消息
+				// 答：frpc在启动所有的代理的时候，会向frps发送每个代理的信息(NewProxy消息)，当frps处理启动对应端口监听时就会返回代理类型响应的消息
 				// 当frpc收到frps响应的代理消息之后，将会把代理的状态设置为Running状态，此时代理可以开始处理正常的业务数据了
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:

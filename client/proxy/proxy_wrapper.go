@@ -44,6 +44,7 @@ type WorkingStatus struct {
 }
 
 type Wrapper struct {
+	// 代理的状态
 	WorkingStatus
 
 	// underlying proxy
@@ -51,6 +52,7 @@ type Wrapper struct {
 
 	// if ProxyConf has healcheck config
 	// monitor will watch if it is alive
+	// TODO 什么时候认为当前代理处于非健康状态？
 	monitor *health.Monitor
 
 	// event handler
