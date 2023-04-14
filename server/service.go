@@ -204,6 +204,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		return
 	}
 
+	// 这里的Mux也是为了流量转发，主要原因是：BindPort, UDPBindPort, QUICBindPort, VHostHttpPort, VHostHttpsPort可以是
+	// 同一个端口，因此需要从数据的特征区分流量，自定义TSL第一个字节也是为了可以让BindPort, VHostHttpsPort复用一个端口
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go func() {
@@ -300,7 +302,6 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// frp tls listener
-	// TODO 支持HTTPS
 	svr.tlsListener = svr.muxer.Listen(2, 1, func(data []byte) bool {
 		// tls first byte can be 0x16 only when vhost https port is not same with bind port
 		return int(data[0]) == frpNet.FRPTLSHeadByte || int(data[0]) == 0x16
