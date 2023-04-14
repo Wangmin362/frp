@@ -72,7 +72,6 @@ type LocalSvrConf struct {
 	// Plugin specifies what plugin should be used for ng. If this value
 	// is set, the LocalIp and LocalPort values will be ignored. By default,
 	// this value is "".
-	// TODO plugin有啥用？用户如何配置plugin?
 	Plugin string `ini:"plugin" json:"plugin"`
 	// PluginParams specify parameters to be passed to the plugin, if one is
 	// being used. By default, this value is an empty map.
@@ -92,7 +91,6 @@ type HealthCheckConf struct {
 	// If the type is "http", a GET request will be made to the endpoint
 	// specified by HealthCheckURL. If the response is not a 200, the health
 	// check fails.
-	// TODO 如何理解健康检测
 	HealthCheckType string `ini:"health_check_type" json:"health_check_type"` // tcp | http
 	// HealthCheckTimeoutS specifies the number of seconds to wait for a health
 	// check attempt to connect. If the timeout is reached, this counts as a
@@ -132,7 +130,8 @@ type BaseProxyConf struct {
 	// Group specifies which group the is a part of. The server will use
 	// this information to load balance proxies in the same group. If the value
 	// is "", this will not be in a group. By default, this value is "".
-	// TODO 一个group下的服务是同一类型的服务，也就是说需要支持负载均衡
+	// 一个group下的服务是同一类型的服务，也就是说需要支持负载均衡
+	// 另外，一个组下的所有服务的remote_port应该设置为相同端口
 	Group string `ini:"group" json:"group"`
 	// GroupKey specifies a group key, which should be the same among proxies
 	// of the same group. By default, this value is "".
@@ -168,12 +167,16 @@ type HTTPProxyConf struct {
 	BaseProxyConf `ini:",extends"`
 	DomainConf    `ini:",extends"`
 
-	Locations         []string          `ini:"locations" json:"locations"`
-	HTTPUser          string            `ini:"http_user" json:"http_user"`
-	HTTPPwd           string            `ini:"http_pwd" json:"http_pwd"`
-	HostHeaderRewrite string            `ini:"host_header_rewrite" json:"host_header_rewrite"`
-	Headers           map[string]string `ini:"-" json:"headers"`
-	RouteByHTTPUser   string            `ini:"route_by_http_user" json:"route_by_http_user"`
+	// TODO locations制定了什么含义？
+	Locations []string `ini:"locations" json:"locations"`
+	// HTTPUser以及HTTPPwd用于实现Basic Auth认证
+	HTTPUser string `ini:"http_user" json:"http_user"`
+	HTTPPwd  string `ini:"http_pwd" json:"http_pwd"`
+	// 重写请求头
+	HostHeaderRewrite string `ini:"host_header_rewrite" json:"host_header_rewrite"`
+	// 新增自定义请求头
+	Headers         map[string]string `ini:"-" json:"headers"`
+	RouteByHTTPUser string            `ini:"route_by_http_user" json:"route_by_http_user"`
 }
 
 // HTTPS
@@ -185,7 +188,8 @@ type HTTPSProxyConf struct {
 // TCP
 type TCPProxyConf struct {
 	BaseProxyConf `ini:",extends"`
-	RemotePort    int `ini:"remote_port" json:"remote_port"`
+	// frps需要监听的端口，用户访问这个端口就能访问到当前的TCP服务
+	RemotePort int `ini:"remote_port" json:"remote_port"`
 }
 
 // TCPMux
@@ -196,6 +200,7 @@ type TCPMuxProxyConf struct {
 	HTTPPwd         string `ini:"http_pwd" json:"http_pwd,omitempty"`
 	RouteByHTTPUser string `ini:"route_by_http_user" json:"route_by_http_user"`
 
+	// 目前frp唯一支持的是 httpconnect,即通过发送HTTP Connect方法
 	Multiplexer string `ini:"multiplexer"`
 }
 

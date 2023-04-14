@@ -107,7 +107,7 @@ type ClientCommonConf struct {
 	// from a client to share a single TCP connection. If this value is true,
 	// the server must have TCP multiplexing enabled as well. By default, this
 	// value is true.
-	// TODO frpc的tcpMux用于控制和frps之间的连接是否是多路复用
+	// frpc的TCPMux开关必须和frps的TCPMux开关保持一致
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.

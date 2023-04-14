@@ -282,7 +282,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	}
 
 	// Add auth 设置认证器,发送认证相关的参数,目前看来frp认证可以采用token也可采用oidc
-	// TODO TLS是干嘛用的? frpc和frps之间可以通过TLS进行双向认证么?
+	// 虽然frpc和frps之间可以使用TLS加密，但是可以增加认证
 	if err = svr.authSetter.SetLogin(loginMsg); err != nil {
 		return
 	}
@@ -438,7 +438,7 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 		}
 		return frpNet.QuicStreamToNetConn(stream, cm.quicConn), nil
 	} else if cm.muxSession != nil {
-		// 类似于HTTP2中的frame，可以认为就是一个连接，只不过是公用的连接
+		// 类似于HTTP2中的frame，也就是连接的多路复用，看起来是新建的连接，实际上是复用了连接
 		stream, err := cm.muxSession.OpenStream()
 		if err != nil {
 			return nil, err
@@ -446,6 +446,7 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 		return stream, nil
 	}
 
+	// 如果没有开启多路复用，就需要真的和frps之间新建一个连接
 	return cm.realConnect()
 }
 
@@ -472,7 +473,7 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 		}
 	}
 
-	// 解析frp client的代理
+	// 如果指定了这个参数，说明frpc需要通过代理连接到frps
 	proxyType, addr, auth, err := libdial.ParseProxyURL(cm.cfg.HTTPProxy)
 	if err != nil {
 		xl.Error("fail to parse proxy url")
@@ -498,7 +499,7 @@ func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 			Hook: frpNet.DialHookCustomTLSHeadByte(tlsConfig != nil, cm.cfg.DisableCustomTLSFirstByte),
 		}),
 	)
-	// frpc和frps之间建立TCP连接
+	// frpc和frps之间建立连接 可能是TCP(Websocket)/KCP协议
 	conn, err := libdial.Dial(
 		net.JoinHostPort(cm.cfg.ServerAddr, strconv.Itoa(cm.cfg.ServerPort)),
 		dialOptions...,

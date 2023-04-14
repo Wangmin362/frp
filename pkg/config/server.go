@@ -30,30 +30,31 @@ import (
 // recommended to use GetDefaultServerConf instead of creating this object
 // directly, so that all unspecified fields have reasonable default values.
 type ServerCommonConf struct {
+	// 授权认证相关
 	auth.ServerConfig `ini:",extends"`
 
 	// BindAddr specifies the address that the server binds to. By default,
 	// this value is "0.0.0.0".
-	// frp的监听地址，默认为：0.0.0.0 也就是允许所有ip地址访问
-	// TODO BindAddr用于和frp client之间的交互，猜测这个端口是用于frpc client注册，同时让server监听需要的端口
+	// frp的监听地址，BindAddr用于和frp client之间的交互，猜测这个端口是用于frpc client注册，同时让server监听需要的端口
 	BindAddr string `ini:"bind_addr" json:"bind_addr"`
 	// BindPort specifies the port that the server listens on. By default, this
 	// value is 7000.  frp默认监听端口
+	// BindPort,BindUDPPort,KCPBindPort,QUICBindPort可以设置为同一个端口  frp可以区分不同的协议
 	BindPort int `ini:"bind_port" json:"bind_port" validate:"gte=0,lte=65535"`
 	// BindUDPPort specifies the UDP port that the server listens on. If this
 	// value is 0, the server will not listen for UDP connections. By default,
 	// this value is 0
-	// TODO frp可以代理TCP,同时也可以代理UDP流量
+	// frp可以代理TCP,同时也可以代理UDP流量
 	BindUDPPort int `ini:"bind_udp_port" json:"bind_udp_port" validate:"gte=0,lte=65535"`
 	// KCPBindPort specifies the KCP port that the server listens on. If this
 	// value is 0, the server will not listen for KCP connections. By default,
 	// this value is 0.
-	// TODO frp可以代理KCP流量
+	// frp可以代理KCP流量
 	KCPBindPort int `ini:"kcp_bind_port" json:"kcp_bind_port" validate:"gte=0,lte=65535"`
 	// QUICBindPort specifies the QUIC port that the server listens on.
 	// Set this value to 0 will disable this feature.
 	// By default, the value is 0.
-	// TODO frp还可以代理QUIC流量
+	// frp还可以代理QUIC流量
 	QUICBindPort int `ini:"quic_bind_port" json:"quic_bind_port" validate:"gte=0,lte=65535"`
 	// QUIC protocol options
 	QUICKeepalivePeriod    int `ini:"quic_keepalive_period" json:"quic_keepalive_period" validate:"gte=0"`
@@ -67,6 +68,7 @@ type ServerCommonConf struct {
 	// requests. If this value is 0, the server will not listen for HTTP
 	// requests. By default, this value is 0.
 	// Server通过监听这个端口，可以转发不同的域名的HTTP请求到不同的代理服务当中
+	// BindPort, VhostHTTPPort, VhostsHTTPSPort可以监听相同的端口，frp可以识别
 	VhostHTTPPort int `ini:"vhost_http_port" json:"vhost_http_port" validate:"gte=0,lte=65535"`
 	// VhostHTTPSPort specifies the port that the server listens for HTTPS
 	// Vhost requests. If this value is 0, the server will not listen for HTTPS
@@ -77,7 +79,7 @@ type ServerCommonConf struct {
 	// HTTP CONNECT requests. If the value is 0, the server will not multiplex TCP
 	// requests on one single port. If it's not - it will listen on this value for
 	// HTTP CONNECT requests. By default, this value is 0.
-	// TODO 如何使用？
+	// 基于HTTP Coonnect
 	TCPMuxHTTPConnectPort int `ini:"tcpmux_httpconnect_port" json:"tcpmux_httpconnect_port" validate:"gte=0,lte=65535"`
 	// If TCPMuxPassthrough is true, frps won't do any update on traffic.
 	TCPMuxPassthrough bool `ini:"tcpmux_passthrough" json:"tcpmux_passthrough"`
@@ -148,6 +150,8 @@ type ServerCommonConf struct {
 	// from a client to share a single TCP connection. By default, this value
 	// is true.
 	// TODO 如果frps和frpc的TCP_MUX一个为false，一个为true会发生什么？
+	// 答：由于TCP_MUX的实现是在TCP的基础之上包装了一层，因此frpc和frps之间要么同时开启TCP_MUX，要么同时关闭。
+	// 否则总会有一方因为无法解析数据而报错
 	TCPMux bool `ini:"tcp_mux" json:"tcp_mux"`
 	// TCPMuxKeepaliveInterval specifies the keep alive interval for TCP stream multipler.
 	// If TCPMux is true, heartbeat of application layer is unnecessary because it can only rely on heartbeat in TCPMux.
@@ -163,7 +167,7 @@ type ServerCommonConf struct {
 	// AllowPorts specifies a set of ports that clients are able to proxy to.
 	// If the length of this value is 0, all ports are allowed. By default,
 	// this value is an empty set.
-	// TODO 用户如何指定允许的端口？
+	// 用户通过 allow_ports  参数指定允许的端口，通过此参数，frps可以防止frpc滥用端口
 	// 在代码当中，如果没有指定这个参数，那么默认[1, 65535]端口都是可以正常使用的
 	AllowPorts map[int]struct{} `ini:"-" json:"-"`
 	// Original string.
@@ -178,6 +182,7 @@ type ServerCommonConf struct {
 	MaxPortsPerClient int64 `ini:"max_ports_per_client" json:"max_ports_per_client"`
 	// TLSOnly specifies whether to only accept TLS-encrypted connections.
 	// By default, the value is false.
+	// 如果TLSOnly设置为True,那么frps只接受frpc使用TLS连接，因此frpc必须配置证书
 	TLSOnly bool `ini:"tls_only" json:"tls_only"`
 	// TLSCertFile specifies the path of the cert file that the server will
 	// load. If "tls_cert_file", "tls_key_file" are valid, the server will use this
@@ -202,7 +207,7 @@ type ServerCommonConf struct {
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `ini:"user_conn_timeout" json:"user_conn_timeout"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
-	// TODO 这个参数如何使用
+	// 不同的HTTP插件由不同的功能,可以参考https://gofrp.org/docs/features/common/client-plugin/页面
 	HTTPPlugins map[string]plugin.HTTPPluginOptions `ini:"-" json:"http_plugins"`
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500
