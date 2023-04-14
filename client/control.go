@@ -335,14 +335,24 @@ func (ctl *Control) msgHandler() {
 
 			switch m := rawMsg.(type) {
 			case *msg.ReqWorkConn:
-				// 这个数据包又是干嘛的呢?  猜测这里就是frpc需要真是代理数据包的地方
-				// 答：这里并非在代理真正的数据包，而是在建立frpc和frps tcp连接
-				// 从名字上可以看出来，这里实际上是在建立一条work conn，也就是真正代理数据包的连接
+				// 1、frpc什么时候会收到这个消息呢？主要有下面三种情况
+				// 一、frpc成功注册到frps之后，frps就会发送此消息过来，同时如果设置了连接池，那么frps会发送对应数量的ReqWorkConn给frpc
+				// 二、当用户请求frps监听的remote_port端口时，如果连接池中没有连接了，那么frps会发送一个ReqWorkConn消息过来
+				// 三、当用户请求frps监听的remote_port端口时，如果从连接池中成功获取到了一个连接，frps会马上发送ReqWorkConn给frpc以补充连接池中的连接
+
+				// 2、frpc收到这个消息干了啥？
+				// 答：frpc收到此消息之后，立马启动一个协程和frps之间建立一个连接，同时在新建立的连接上发送一个NewWorkConn消息给frps，frps收到NewWorkConn
+				// 消息之后，就知道frpc已经按照自己的要求建立好连接。此时，这个新协程会阻塞，等待frps发送StartWorkConn消息。一旦用户通过
+				// remote_port连接到frps，frps就知道用户需要访问被代理的服务了，此时frps会发送一个StartWorkConn消息给frpc。frpc收到
+				// 此消息之后，马上和被代理的服务建立好连接，后续frpc只需要透明代理流量即可
 				go ctl.HandleReqWorkConn(m)
 			case *msg.NewProxyResp:
-				// frps啥时候会发送这个数据包呢?
-				// 答：frpc在启动所有的代理的时候，会向frps发送每个代理的信息(NewProxy消息)，当frps处理启动对应端口监听时就会返回代理类型响应的消息
-				// 当frpc收到frps响应的代理消息之后，将会把代理的状态设置为Running状态，此时代理可以开始处理正常的业务数据了
+				// 1、frps啥时候会发送这个数据包呢?
+				// 答：frpc在成功注册到frps之后，会把自己的代理服务保证为NewProxy消息发送给frps，frps接收到此消息并注册该代理
+				// 同时监听此代理的remote_port端口，就会返回frpc NewProxyResp消息
+				// 2、frpc收到此消息之后干了啥？
+				// 答：frpc设置当前代理的状态为running就退出了。实际上确实也不需要frpc干啥，毕竟和frps之间的连接已经建好，当用户
+				// 真正开始请求数据时在进行代理即可
 				ctl.HandleNewProxyResp(m)
 			case *msg.Pong:
 				if m.Error != "" {

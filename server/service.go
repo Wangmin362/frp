@@ -406,9 +406,7 @@ func (svr *Service) handleConnection(ctx context.Context, conn net.Conn) {
 		}
 	case *msg.NewWorkConn:
 		// frpc什么时候会向frps发送这个类型的消息？ 答：当客户端需要访问内部穿透服务的时候,frps会发送ReqWorkConn消息，frpc收到之后
-		// 会和代理程序建立连接，并且返回一个NewWorkConn消息
-		// conn是frpc和frps之间新建立的连接
-		// TODO 分析注册WorkConn流程
+		// 会和代理程序建立连接，并且返回一个NewWorkConn消息，frps收到此消息之后就知道和frpc的连接已经建立完成，把当前连接放入到连接池当中
 		if err := svr.RegisterWorkConn(conn, m); err != nil {
 			conn.Close()
 		}

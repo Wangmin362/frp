@@ -250,7 +250,7 @@ func (svr *Service) keepControllerWorking() {
 // session: if it's not nil, using tcp mux
 func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 	xl := xlog.FromContextSafe(svr.ctx)
-	// TODO 连接管理器是如何工作的？ 答：连接管理器主要是为了能够复用frpc到frps之间的连接，并且能够做到IO多路复用
+	// 连接管理器是如何工作的？ 答：连接管理器主要是为了能够复用frpc到frps之间的连接，并且能够做到IO多路复用
 	cm = NewConnectionManager(svr.ctx, &svr.cfg)
 
 	// 建立frpc和frps之间的连接
