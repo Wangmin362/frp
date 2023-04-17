@@ -23,10 +23,11 @@ import (
 	"github.com/fatedier/golib/errors"
 )
 
-// Creators is used for create plugins to handle connections.
+// Creators are used for create plugins to handle connections.
 var creators = make(map[string]CreatorFn)
 
-// params has prefix "plugin_"
+// CreatorFn params has prefix "plugin_"
+// TODO 所有通过plugin_开头的参数都被认为是插件参数
 type CreatorFn func(params map[string]string) (Plugin, error)
 
 func Register(name string, fn CreatorFn) {

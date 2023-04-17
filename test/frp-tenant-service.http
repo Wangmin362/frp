@@ -1,5 +1,5 @@
 ### get tenant-a hello1
-GET http://{{tenant-a-addr}}/hello1
+GET https://test.example.com/hello1
 Accept: application/json
 
 ### get tenant-a hellob
