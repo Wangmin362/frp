@@ -319,6 +319,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 	// Create nat hole controller.
 	if cfg.BindUDPPort > 0 {
+		// TODO 为什么UDP相关协议的控制器被命名为nethole?
 		var nc *nathole.Controller
 		address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindUDPPort))
 		nc, err = nathole.NewController(address, []byte(cfg.Token))
