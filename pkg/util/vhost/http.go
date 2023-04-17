@@ -307,6 +307,7 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 	location := req.URL.Path
 	user, passwd, _ := req.BasicAuth()
 	if !rp.CheckAuth(domain, location, user, user, passwd) {
+		// 简单的Basic认证，让用户输入用户名以及密码
 		rw.Header().Set("WWW-Authenticate", `Basic realm="Restricted"`)
 		http.Error(rw, http.StatusText(http.StatusUnauthorized), http.StatusUnauthorized)
 		return
@@ -314,8 +315,10 @@ func (rp *HTTPReverseProxy) ServeHTTP(rw http.ResponseWriter, req *http.Request)
 
 	newreq := rp.injectRequestInfoToCtx(req)
 	if req.Method == http.MethodConnect {
+		// TODO 这里因该是为了支持tcpmux_httpconnect_port端口复用
 		rp.connectHandler(rw, newreq)
 	} else {
+		// TODO 根据Domain，找到对应的代理
 		rp.proxy.ServeHTTP(rw, newreq)
 	}
 }

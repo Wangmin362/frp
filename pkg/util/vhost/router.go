@@ -12,6 +12,7 @@ var ErrRouterConfigConflict = errors.New("router config conflict")
 type routerByHTTPUser map[string][]*Router
 
 type Routers struct {
+	// key为domain
 	indexByDomain map[string]routerByHTTPUser
 
 	mutex sync.RWMutex

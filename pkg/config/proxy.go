@@ -140,6 +140,7 @@ type BaseProxyConf struct {
 	// ProxyProtocolVersion specifies which protocol version to use. Valid
 	// values include "v1", "v2", and "". If the value is "", a protocol
 	// version will be automatically selected. By default, this value is "".
+	// 代理协议开启的前提时需要内部服务支持此协议，可以参考：https://gofrp.org/docs/features/common/realip/
 	ProxyProtocolVersion string `ini:"proxy_protocol_version" json:"proxy_protocol_version"`
 
 	// BandwidthLimit limit the bandwidth

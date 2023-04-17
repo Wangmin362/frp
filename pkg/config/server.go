@@ -62,7 +62,7 @@ type ServerCommonConf struct {
 	QUICMaxIncomingStreams int `ini:"quic_max_incoming_streams" json:"quic_max_incoming_streams" validate:"gte=0"`
 	// ProxyBindAddr specifies the address that the proxy binds to. This value
 	// may be the same as BindAddr.
-	// TODO 这个配置是干嘛用的？
+	// TODO 这个配置是干嘛用的？ 如果没有指定这个参数，那么该值会被默认设置为BindAddr
 	ProxyBindAddr string `ini:"proxy_bind_addr" json:"proxy_bind_addr"`
 	// VhostHTTPPort specifies the port that the server listens for HTTP Vhost
 	// requests. If this value is 0, the server will not listen for HTTP
@@ -207,7 +207,7 @@ type ServerCommonConf struct {
 	// connection. By default, this value is 10.
 	UserConnTimeout int64 `ini:"user_conn_timeout" json:"user_conn_timeout"`
 	// HTTPPlugins specify the server plugins support HTTP protocol.
-	// 不同的HTTP插件由不同的功能,可以参考https://gofrp.org/docs/features/common/client-plugin/页面
+	// 不同的HTTP插件由不同的功能,可以参考 https://gofrp.org/docs/features/common/server-plugin/ 页面
 	HTTPPlugins map[string]plugin.HTTPPluginOptions `ini:"-" json:"http_plugins"`
 	// UDPPacketSize specifies the UDP packet size
 	// By default, this value is 1500

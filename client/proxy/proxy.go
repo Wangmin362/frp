@@ -752,6 +752,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 
 	xl.Trace("handle tcp work connection, use_encryption: %t, use_compression: %t",
 		baseInfo.UseEncryption, baseInfo.UseCompression)
+	// 是否使用加密，如果开启了加密，frp将会使用token加密数据
 	if baseInfo.UseEncryption {
 		remote, err = frpIo.WithEncryption(remote, encKey)
 		if err != nil {
@@ -760,12 +761,14 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 			return
 		}
 	}
+	// 是否启用了压缩
 	if baseInfo.UseCompression {
 		remote = frpIo.WithCompression(remote)
 	}
 
 	// check if we need to send proxy protocol info
 	var extraInfo []byte
+	// 代理协议的开启时需要内部服务支持代理协议，可以参考：https://gofrp.org/docs/features/common/realip/
 	if baseInfo.ProxyProtocolVersion != "" {
 		if m.SrcAddr != "" && m.SrcPort != 0 {
 			if m.DstAddr == "" {
@@ -797,6 +800,7 @@ func HandleTCPWorkConnection(ctx context.Context, localInfo *config.LocalSvrConf
 		}
 	}
 
+	// 如果配置了代理模块，那么代理流量会被转发到代理插件当中
 	if proxyPlugin != nil {
 		// if plugin is set, let plugin handle connections first
 		xl.Debug("handle by plugin: %s", proxyPlugin.Name())

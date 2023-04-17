@@ -65,7 +65,7 @@ type Service struct {
 	muxer *mux.Mux
 
 	// Accept connections from client
-	// 监听bind_addr:bind_port地址，等待客户端的连接
+	// TODO 这个属性代表着什么？
 	listener net.Listener
 
 	// Accept connections using kcp
@@ -120,23 +120,25 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		pxyManager: proxy.NewManager(),
 		// TODO 插件管理器 目前似乎只有HTTP插件 插件的执行发生在哪个生命周期
 		pluginManager: plugin.NewManager(),
-		// TODO 资源管理器
+		// 资源管理器
 		rc: &controller.ResourceController{
 			VisitorManager: visitor.NewManager(),
 			// 用于管理端口，并判断某个端口当前是否可用
 			TCPPortManager: ports.NewManager("tcp", cfg.ProxyBindAddr, cfg.AllowPorts),
 			UDPPortManager: ports.NewManager("udp", cfg.ProxyBindAddr, cfg.AllowPorts),
 		},
-		// TODO HTTP路由 如果是HTTPS呢？ 也是使用这个路由么？
+		// 根据域名进行反向代理
+		// TODO 不同的服务注册上来之后，配置了domain的服务，需要把信息注册到路由当中 HTTP和HTTPS共用一个路由
 		httpVhostRouter: vhost.NewRouters(),
-		// TODO 认证器
+		// frp目前只支持frps以及frpc
 		authVerifier: auth.NewAuthVerifier(cfg.ServerConfig),
 		tlsConfig:    tlsConfig,
 		cfg:          cfg,
 	}
 
 	// Create tcpmux httpconnect multiplexer.
-	// TODO TCP多路复用器,它是如何工作的？ 答：本质上是通过先发送HTTP CONNECT方法建立的隧道，然后在建立好的隧道之上传输数据
+	// TCP多路复用器,它是如何工作的？ 答：本质上是通过先发送HTTP CONNECT方法建立的隧道，然后在建立好的隧道之上传输数据
+	// 这需要用户访问企业内部服务的时候，需要先发送一个HTTP Connect请求，后就frp就可以直接进行四层代理了
 	if cfg.TCPMuxHTTPConnectPort > 0 {
 		var l net.Listener
 		address := net.JoinHostPort(cfg.ProxyBindAddr, strconv.Itoa(cfg.TCPMuxHTTPConnectPort))
@@ -162,6 +164,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	sort.Strings(pluginNames)
 
 	for _, name := range pluginNames {
+		// 注册服务端插件
 		svr.pluginManager.Register(plugin.NewHTTPPluginOptions(cfg.HTTPPlugins[name]))
 		log.Info("plugin [%s] has been registered", name)
 	}
@@ -186,6 +189,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		httpMuxOn  bool
 		httpsMuxOn bool
 	)
+	// 端口复用
 	if cfg.BindAddr == cfg.ProxyBindAddr {
 		if cfg.BindPort == cfg.VhostHTTPPort {
 			httpMuxOn = true
@@ -206,12 +210,16 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 	// 这里的Mux也是为了流量转发，主要原因是：BindPort, UDPBindPort, QUICBindPort, VHostHttpPort, VHostHttpsPort可以是
 	// 同一个端口，因此需要从数据的特征区分流量，自定义TSL第一个字节也是为了可以让BindPort, VHostHttpsPort复用一个端口
+	// TODO Fatedier自定义的Mux的主要作用是为了能够端口复用，原理是：不同的协议其报文格式是不一样的，我们只需要取出
+	// TODO 前面几个字节数据就能推测出上层的协议，这也是端口复用的核心。
+	// HTTP协议的流量前三个字节一定是HTTP Method的前三个字符，譬如：GET, POST, PUT, PATCH, DELETE, OPTION, CONNECTION, HEAD, TRACE
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go func() {
-		// frps开始监听
+		// frps开始监听fprs.ini中配置的BindAddr:BindPort
 		_ = svr.muxer.Serve()
 	}()
+	// TODO 这里到底干了啥？暂时没有看懂
 	ln = svr.muxer.DefaultListener()
 
 	svr.listener = ln
@@ -265,8 +273,10 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		}
 		var l net.Listener
 		if httpMuxOn {
+			// 如果开启了TCP_MUX, 就会复用frps的BIND_ADDR:BIND_PORT
 			l = svr.muxer.ListenHttp(1)
 		} else {
+			// 如果没有看起TCP_MUX, 只能通过监听额外的端口来区分HTTP协议的流量
 			l, err = net.Listen("tcp", address)
 			if err != nil {
 				err = fmt.Errorf("create vhost http listener error, %v", err)

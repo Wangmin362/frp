@@ -68,6 +68,8 @@ func (pm *Manager) Close() {
 	pm.proxies = make(map[string]*Wrapper)
 }
 
+// HandleWorkConn 代理用户发送给frps真实的数据到内部服务
+// workConn为frps和frpc之间建立的连接， m为frps发送的消息，顾名思义，实际上就是开始工作的信号，其实就是开始代理用户数据到内部服务了
 func (pm *Manager) HandleWorkConn(name string, workConn net.Conn, m *msg.StartWorkConn) {
 	pm.mu.RLock()
 	pw, ok := pm.proxies[name]

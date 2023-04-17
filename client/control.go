@@ -172,6 +172,8 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 		return
 	}
 
+	// 只有当用户正真连接frps监听的remote_port端口，开始访问内部服务时，frps就会从连接池中拿出一个连接
+	// 然后发从StartWorkConn消息，再frps发送此消息之前，当前协程一致被阻塞在这里
 	var startMsg msg.StartWorkConn
 	// 读取frps的响应
 	if err = msg.ReadMsgInto(workConn, &startMsg); err != nil {
@@ -185,6 +187,7 @@ func (ctl *Control) HandleReqWorkConn(inMsg *msg.ReqWorkConn) {
 		return
 	}
 
+	// 当frpc收到frps发送的StartWorkConn连接时，frpc会和内部被代理的服务建立一个连接
 	// dispatch this work connection to related proxy
 	ctl.pm.HandleWorkConn(startMsg.ProxyName, workConn, &startMsg)
 }

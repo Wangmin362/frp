@@ -114,6 +114,7 @@ func (svr *Service) Run() error {
 	xl := xlog.FromContextSafe(svr.ctx)
 
 	// set custom DNSServer  使用用户指定的DNS
+	// TODO 什么场景下应该使用自定义的DNS？
 	if svr.cfg.DNSServer != "" {
 		dnsAddr := svr.cfg.DNSServer
 		if _, _, err := net.SplitHostPort(dnsAddr); err != nil {

@@ -43,6 +43,9 @@ func Create(name string, params map[string]string) (p Plugin, err error) {
 	return
 }
 
+// Plugin 就目前的设计来看，一个代理服务只能配置一个插件
+// TODO 有没有一种场景是需要配置多个插件的？ FRP如何支持多个插件？ 为什么目前FRP的设计只能支持每个代理服务配置一个插件
+// 答：实际上FRP当前的插件都是代理插件，既然是代理，那么必然只能代理到一个地方，所以每个代理服务只能配置一个代理插件
 type Plugin interface {
 	Name() string
 
