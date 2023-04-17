@@ -213,6 +213,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	// TODO Fatedier自定义的Mux的主要作用是为了能够端口复用，原理是：不同的协议其报文格式是不一样的，我们只需要取出
 	// TODO 前面几个字节数据就能推测出上层的协议，这也是端口复用的核心。
 	// HTTP协议的流量前三个字节一定是HTTP Method的前三个字符，譬如：GET, POST, PUT, PATCH, DELETE, OPTION, CONNECTION, HEAD, TRACE
+	// TODO 分析Mux具体原理
 	svr.muxer = mux.NewMux(ln)
 	svr.muxer.SetKeepAlive(time.Duration(cfg.TCPKeepAlive) * time.Second)
 	go func() {
