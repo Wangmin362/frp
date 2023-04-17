@@ -1,0 +1,3 @@
+[submodule "deps/golib"]
+	path = deps/golib
+	url = git@github.com:Wangmin362/golib.git
