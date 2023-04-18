@@ -305,6 +305,8 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 			if ok && inErr.Timeout() {
 				_ = workConn.SetReadDeadline(time.Time{})
 				break
+			} else {
+				workConn.Close()
 			}
 		}
 		_ = workConn.SetReadDeadline(time.Time{})
