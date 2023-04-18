@@ -298,6 +298,10 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 			}
 		}
 
+		if ctl.serverCfg.TCPMux {
+			break
+		}
+
 		buf := make([]byte, 1)
 		_ = workConn.SetReadDeadline(time.Now().Add(10 * time.Microsecond))
 		if _, err := workConn.Read(buf); err != nil {
