@@ -107,6 +107,7 @@ func (pxy *BaseProxy) GetWorkConnFromPool(src, dst net.Addr) (workConn net.Conn,
 	xl := xlog.FromContextSafe(pxy.ctx)
 	// try all connections from the pool
 	for i := 0; i < pxy.poolCount+1; i++ {
+		// TODO 如果这里的链接被frpc断开会怎样？ 譬如frpc挂了
 		if workConn, err = pxy.getWorkConnFn(); err != nil {
 			xl.Warn("failed to get work connection: %v", err)
 			return
@@ -327,7 +328,11 @@ func HandleUserTCPConnection(pxy Proxy, userConn net.Conn, serverCfg config.Serv
 	metrics.Server.OpenConnection(name, proxyType)
 	// 转发用户的数据发送给frpc，同时把frpc响应数据返回给用户 [双向流拷贝]
 	// 如果用户关闭了连接，那么user到frps，以及frps到frpc的连接都会被关闭
-	inCount, outCount, _ := frpIo.Join(local, userConn)
+	// TODO 代理用户的数据，发送到frpc
+	inCount, outCount, errs := frpIo.Join(local, userConn)
+	for i := 0; i < len(errs); i++ {
+		xl.Warn("[io.copy] error: %+v", errs[i])
+	}
 	metrics.Server.CloseConnection(name, proxyType)
 	metrics.Server.AddTrafficIn(name, proxyType, inCount)
 	metrics.Server.AddTrafficOut(name, proxyType, outCount)

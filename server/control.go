@@ -261,38 +261,53 @@ func (ctl *Control) GetWorkConn() (workConn net.Conn, err error) {
 	}()
 
 	var ok bool
-	// get a work connection from the pool
-	select {
-	// 如果连接池中取不到新的连接，就会进入default
-	case workConn, ok = <-ctl.workConnCh:
-		if !ok {
-			err = frpErr.ErrCtlClosed
-			return
-		}
-		xl.Debug("get work connection from pool, now usable conn poll size is %d", len(ctl.workConnCh))
-	default:
-		// no work connections available in the poll, send message to frpc to get more
-		if err = errors.PanicToError(func() {
-			// 没有连接的话就请求建立一个连接
-			ctl.sendCh <- &msg.ReqWorkConn{}
-		}); err != nil {
-			return nil, fmt.Errorf("control is already closed")
-		}
-
+	for {
+		// get a work connection from the pool
 		select {
-		// fprc收到ReqWorkConn消息之后，一定会和frps建立连接，frps建立好的连接必须要放到workConnCh当中
+		// 如果连接池中取不到新的连接，就会进入default
+		// TODO 如果连接池中的连接已经被关闭，因此丢弃当前连接
+		// TODO 如何检测一个连接已经被关闭
 		case workConn, ok = <-ctl.workConnCh:
 			if !ok {
 				err = frpErr.ErrCtlClosed
-				xl.Warn("no work connections available, %v", err)
 				return
 			}
+			xl.Debug("get work connection from pool, now usable conn poll size is %d", len(ctl.workConnCh))
+		default:
+			// no work connections available in the poll, send message to frpc to get more
+			if err = errors.PanicToError(func() {
+				// 没有连接的话就请求建立一个连接
+				ctl.sendCh <- &msg.ReqWorkConn{}
+			}); err != nil {
+				return nil, fmt.Errorf("control is already closed")
+			}
 
-		case <-time.After(time.Duration(ctl.serverCfg.UserConnTimeout) * time.Second):
-			err = fmt.Errorf("timeout trying to get work connection")
-			xl.Warn("%v", err)
-			return
+			select {
+			// fprc收到ReqWorkConn消息之后，一定会和frps建立连接，frps建立好的连接必须要放到workConnCh当中
+			case workConn, ok = <-ctl.workConnCh:
+				if !ok {
+					err = frpErr.ErrCtlClosed
+					xl.Warn("no work connections available, %v", err)
+					return
+				}
+
+			case <-time.After(time.Duration(ctl.serverCfg.UserConnTimeout) * time.Second):
+				err = fmt.Errorf("timeout trying to get work connection")
+				xl.Warn("%v", err)
+				return
+			}
 		}
+
+		buf := make([]byte, 1)
+		_ = workConn.SetReadDeadline(time.Now().Add(10 * time.Microsecond))
+		if _, err := workConn.Read(buf); err != nil {
+			inErr, ok := err.(*net.OpError)
+			if ok && inErr.Timeout() {
+				_ = workConn.SetReadDeadline(time.Time{})
+				break
+			}
+		}
+		_ = workConn.SetReadDeadline(time.Time{})
 	}
 
 	// When we get a work connection from pool, replace it with a new one.
@@ -485,6 +500,7 @@ func (ctl *Control) manager() {
 				}
 
 				// register proxy in this control
+				// 注册完frpc发送过来的代理消息，frps开始监听remote_port相关信息，同时通过控制通道回复frpc NewProxyResp消息
 				resp := &msg.NewProxyResp{
 					ProxyName: m.ProxyName,
 				}
@@ -574,7 +590,7 @@ func (ctl *Control) RegisterProxy(pxyMsg *msg.NewProxy) (remoteAddr string, err 
 		}()
 	}
 
-	// TODO 运行代理程序，一般情况下进入TCP代理
+	// 监听代理服务所设置的remote_port端口，等待用户的真实连接
 	remoteAddr, err = pxy.Run()
 	if err != nil {
 		return
