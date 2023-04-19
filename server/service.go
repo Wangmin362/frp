@@ -65,7 +65,7 @@ type Service struct {
 	muxer *mux.Mux
 
 	// Accept connections from client
-	// TODO 这个属性代表着什么？
+	// 实际上上就muxer的defaultLn,当调用Accept函数时，就会从Chan中获取到一个连接
 	listener net.Listener
 
 	// Accept connections using kcp
@@ -87,15 +87,18 @@ type Service struct {
 	pxyManager *proxy.Manager
 
 	// Manage all plugins
+	// TODO frps插件流程 用户自定义开发frps插件，可以参考：https://github.com/gofrp/plugin
 	pluginManager *plugin.Manager
 
 	// HTTP vhost router
+	// 根据不同的域名路由到HTTP服务
 	httpVhostRouter *vhost.Routers
 
 	// All resource managers and controllers
 	rc *controller.ResourceController
 
 	// Verifies authentication based on selected method
+	// frp目前只支持token以及oidc认证
 	authVerifier auth.Verifier
 
 	tlsConfig *tls.Config
@@ -130,7 +133,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		// 根据域名进行反向代理
 		// TODO 不同的服务注册上来之后，配置了domain的服务，需要把信息注册到路由当中 HTTP和HTTPS共用一个路由
 		httpVhostRouter: vhost.NewRouters(),
-		// frp目前只支持frps以及frpc
+		// frp目前只支持token以及oidc认证
 		authVerifier: auth.NewAuthVerifier(cfg.ServerConfig),
 		tlsConfig:    tlsConfig,
 		cfg:          cfg,
@@ -200,8 +203,10 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 	}
 
 	// Listen for accepting connections from client.
-	// 监听frps配置的端口
+	// 根据frps配置的BindAddr:BindPort，生成一个Listener,此时还未开始监听，调用Accept之后才开始监听
 	address := net.JoinHostPort(cfg.BindAddr, strconv.Itoa(cfg.BindPort))
+	// TODO frps上来直接监听BindPort的TCP连接，实际上如果frpc配置为其它协议，譬如QUIC, KCP协议，这个监听也就没有意义
+	// TODO 当然，如果配置了VhostHTTPPort或者VhostHTTPsPort,那么这里的监听是有意义的，毕竟底层都是TCP
 	ln, err := net.Listen("tcp", address)
 	if err != nil {
 		err = fmt.Errorf("create server listener error, %v", err)
@@ -220,7 +225,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		// frps开始监听fprs.ini中配置的BindAddr:BindPort
 		_ = svr.muxer.Serve()
 	}()
-	// TODO 这里到底干了啥？暂时没有看懂
+	// 为muxer设置一个默认的Listener
 	ln = svr.muxer.DefaultListener()
 
 	svr.listener = ln
@@ -275,6 +280,7 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 		var l net.Listener
 		if httpMuxOn {
 			// 如果开启了TCP_MUX, 就会复用frps的BIND_ADDR:BIND_PORT
+			// 核心原理是向muxer中添加了一个listener, 并没有干啥事情
 			l = svr.muxer.ListenHttp(1)
 		} else {
 			// 如果没有看起TCP_MUX, 只能通过监听额外的端口来区分HTTP协议的流量
@@ -285,6 +291,8 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 			}
 		}
 		go func() {
+			// 当内部调用l.Accept方法时，如果muxer监听到有客户端连接进来，并且是HTTP服务，那么就把会连接转发到Chan中
+			// 然后内部调用l.Accept()方法就能拿到连接
 			_ = server.Serve(l)
 		}()
 		log.Info("http service listen on %s", address)

@@ -63,7 +63,7 @@ type ResourceController struct {
 	NatHoleController *nathole.Controller
 
 	// TCPMux HTTP CONNECT multiplexer
-	// TODO
+	// TODO 利用HTTP CONNECT请求，反向代理TCP流量
 	TCPMuxHTTPConnectMuxer *tcpmux.HTTPConnectTCPMuxer
 
 	// All server manager plugin

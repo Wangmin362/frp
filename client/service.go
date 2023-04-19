@@ -113,7 +113,7 @@ func (svr *Service) Run() error {
 	// TODO logger参数什么时候放到context当中的?
 	xl := xlog.FromContextSafe(svr.ctx)
 
-	// set custom DNSServer  使用用户指定的DNS
+	// set custom DNSServer
 	// TODO 什么场景下应该使用自定义的DNS？
 	if svr.cfg.DNSServer != "" {
 		dnsAddr := svr.cfg.DNSServer
