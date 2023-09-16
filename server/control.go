@@ -83,13 +83,15 @@ func (cm *ControlManager) GetByID(runID string) (ctl *Control, ok bool) {
 	return
 }
 
+// Control 用于抽象一个frps对于一个frpc的控制
 type Control struct {
 	// all resource managers and controllers
 	// TODO 资源控制器控制着什么资源？是对于什么东西的抽象
 	rc *controller.ResourceController
 
 	// proxy manager
-	// 代理管理器，代理管理器的代理肯定是由frpc注册上来的
+	// 1、代理管理器，代理管理器的代理肯定是由frpc注册上来的，
+	// 2、一旦frpc注册商frpc，就会通过NewProxy命令把代理信息注册上来，key为代理的名字，value为当前代理配置
 	pxyManager *proxy.Manager
 
 	// plugin manager
@@ -97,7 +99,7 @@ type Control struct {
 	pluginManager *plugin.Manager
 
 	// verifies authentication based on selected method
-	// 认证器
+	// 认证器，要么是token认证，要么是OIDC认证
 	authVerifier auth.Verifier
 
 	// login message
@@ -105,7 +107,10 @@ type Control struct {
 	loginMsg *msg.Login
 
 	// control connection
-	// frps和frpc之间的连接
+	// 1、frps和frpc之间的连接，也就是frps和frpc之间的控制通道，每当一个frpc通过Login信息登录到frps,frps都会创建一个Control实例用于和
+	// frpc之间交互。
+	// 2、当前的conn其实就是frpc和frps之间的数据连接通道。Control会把frpc发送的数据丢入到readCh当中
+	// 3、另外，如果frps需要向frpc发送消息，那么会把消息发送到sendCh当中，这个channel中的数据最终会被写入到当前连接当中
 	conn net.Conn
 
 	// put a message in this channel to send it over control connection to client
@@ -141,6 +146,7 @@ type Control struct {
 	// A new run id will be generated when a new client login.
 	// If run id got from login message has same run id, it means it's the same client, so we can
 	// replace old controller instantly.
+	// 每隔frps都会为frpc分配一个runID
 	runID string
 
 	// control status
@@ -228,6 +234,7 @@ func (ctl *Control) Start() {
 	go ctl.stoper()
 }
 
+// RegisterWorkConn 所谓的注册数据通道，其实就把把连接放入到对应连接池当中
 func (ctl *Control) RegisterWorkConn(conn net.Conn) error {
 	xl := ctl.xl
 	defer func() {

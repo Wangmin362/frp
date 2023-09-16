@@ -118,8 +118,10 @@ func NewService(cfg config.ServerCommonConf) (svr *Service, err error) {
 
 	svr = &Service{
 		// ControlManager并不难，实际上就是一个Map,key为frpc的RunID,value为每个frpc的控制逻辑
+		// 每当frpc发送Login信息时，一旦认证成功，就会为每一个frpc生成一个Control示例
 		ctlManager: NewControlManager(),
 		// 代理管理器，实际上也是一个map, key为代理名字，value为代理的配置内容
+		// TODO 为啥这里需要pxyManager? 这里面保存的是什么信息？
 		pxyManager: proxy.NewManager(),
 		// TODO 插件管理器 目前似乎只有HTTP插件 插件的执行发生在哪个生命周期
 		pluginManager: plugin.NewManager(),

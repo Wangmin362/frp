@@ -104,7 +104,7 @@ func NewControl(
 	// new xlog instance
 	ctl := &Control{
 		runID:              runID,                       // frpc注册到frps的时候,frps给frpc分配的一个ID
-		conn:               conn,                        // frpc和frps之间建立的一个连接
+		conn:               conn,                        // frpc和frps之间建立的一个连接 控制通道
 		cm:                 cm,                          // 连接管理器,用于创建frpc和frps之间的连接
 		pxyCfgs:            pxyCfgs,                     // 需要代理的服务
 		sendCh:             make(chan msg.Message, 100), // TODO

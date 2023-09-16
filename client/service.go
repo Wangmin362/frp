@@ -265,7 +265,8 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		}
 	}()
 
-	// 从连接管理器中取出生成一个连接，这个连接肯定和其它连接可以通过内部的数据结构区分
+	// 1、从连接管理器中取出生成一个连接，这个连接肯定和其它连接可以通过内部的数据结构区分
+	// 2、如果开启了tcp_mux，那么这里会服用OpenConnection方法中新建立的连接，如果禁用tcp_mux，那么这里会和frpc之间新建一个连接
 	conn, err = cm.Connect()
 	if err != nil {
 		return
@@ -293,7 +294,7 @@ func (svr *Service) login() (conn net.Conn, cm *ConnectionManager, err error) {
 		return
 	}
 
-	var loginRespMsg msg.LoginResp
+	var loginRespMsg msg.LoginResp // 如果10秒钟之内，frps都没有发送LoginResp信息，那么认为认证失败
 	_ = conn.SetReadDeadline(time.Now().Add(10 * time.Second))
 	// 读取frps返回的认证响应消息
 	if err = msg.ReadMsgInto(conn, &loginRespMsg); err != nil {
@@ -420,6 +421,7 @@ func (cm *ConnectionManager) OpenConnection() error {
 
 	// 创建一个基于tcp的io多路复用
 	fmuxCfg := fmux.DefaultConfig()
+	// TODO KeepAliveInterval参数有何作用？ 这个应该适用于frpc和frpc之间TCP连接保活，定期发送心跳
 	fmuxCfg.KeepAliveInterval = time.Duration(cm.cfg.TCPMuxKeepaliveInterval) * time.Second
 	fmuxCfg.LogOutput = io.Discard
 	// 创建session 通过这个session,可以复用连接
@@ -451,6 +453,7 @@ func (cm *ConnectionManager) Connect() (net.Conn, error) {
 	return cm.realConnect()
 }
 
+// 和frps之间建立一个TCP连接
 func (cm *ConnectionManager) realConnect() (net.Conn, error) {
 	// 从Context中取出Logger实例，用法非常类似java中的ThreadLocalMap
 	xl := xlog.FromContextSafe(cm.ctx)
